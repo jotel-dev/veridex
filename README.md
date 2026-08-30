@@ -10,6 +10,9 @@ Veridex is a scam-detection gate that checks messages, links, and recipient addr
 - **ERC-8004 Reputation Registry:** [`0x8004BAa17C55a88189AE136b182e5fdA19dE9b63`](https://celoscan.io/address/0x8004BAa17C55a88189AE136b182e5fdA19dE9b63)
 - **Allocated Agent ID:** `9797`
 - **Global Agent URI:** `agentRegistry:eip155:42220:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432:9797`
+- **Attribution Tag:** `celo_ef9178addda4`
+- **Hackathon Track:** Track 2 - Real World Adoption (Best Stablecoin Adoption subtrack)
+- **Chainstack Coupon Code:** `AGENTSATWORK` (3 months free Growth plan on Celo Mainnet)
 - **Metadata Standard:** [EIP-8004 Registration v1](https://eips.ethereum.org/EIPS/eip-8004#registration-v1)
 
 > **Important Hackathon Rule:**  

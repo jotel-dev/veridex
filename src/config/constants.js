@@ -64,5 +64,12 @@ module.exports = {
       'event Registered(uint256 indexed agentId, string agentURI, address indexed owner)',
       'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)'
     ]
+  },
+
+  HACKATHON: {
+    SLUG: 'agents-at-work',
+    ATTRIBUTION_TAG: 'celo_ef9178addda4',
+    CHAINSTACK_COUPON: 'AGENTSATWORK',
+    PRIMARY_TRACK: 'real-world-adoption'
   }
 };

@@ -1,0 +1,15 @@
+{
+  "hackathon": "agents-at-work",
+  "projectName": "Veridex",
+  "githubUrl": "https://github.com/jotel-dev/veridex",
+  "attributionTag": "celo_ef9178addda4",
+  "agentId": "9797",
+  "agentWalletAddress": "0xEd1E7722c3fC67f31B9bCdCF7B71770bB2989321",
+  "primaryTrack": "Track 2 - Real World Adoption (Best Stablecoin Adoption subtrack)",
+  "trackSlug": "real-world-adoption",
+  "country": "Nigeria",
+  "telegram": "@jotel001",
+  "cpayBetaOptIn": true,
+  "chainstackCoupon": "AGENTSATWORK",
+  "registeredAt": "2026-08-30T16:13:49.082Z"
+}
