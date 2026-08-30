@@ -1,6 +1,6 @@
 # Veridex - Celo Agents at Work Hackathon
 
-Veridex is an autonomous verification, intent settlement, and liquidity routing agent built natively for the Celo ecosystem.
+Veridex is a scam-detection gate that checks messages, links, and recipient addresses for fraud signals before executing a stablecoin (USA₮) transfer over x402, with sponsored gas.
 
 ## Project Agent Wallet & ERC-8004 Identity
 

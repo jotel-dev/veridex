@@ -36,13 +36,13 @@ class ERC8004Client {
    */
   buildAgentCard({
     name = 'Veridex Agent',
-    description = 'Veridex: Decentralized verification, intent settlement, and liquidity routing agent for Celo Agents at Work Hackathon.',
+    description = 'Veridex is a scam-detection gate that checks messages, links, and addresses for fraud signals before executing a stablecoin (USA₮) transfer over x402, with sponsored gas.',
     walletAddress,
     version = '1.0.0',
     webUrl = 'https://veridex.network',
     mcpEndpoint = 'https://veridex.network/api/mcp',
     a2aEndpoint = 'https://veridex.network/.well-known/agent-card.json',
-    tags = ['veridex', 'celo', 'agent', 'defi', 'verification', 'routing']
+    tags = ['veridex', 'celo', 'scam-detection', 'anti-fraud', 'x402', 'sponsored-gas', 'usat', 'stablecoins']
   }) {
     return {
       type: ERC8004.SPECIFICATION_URL,
