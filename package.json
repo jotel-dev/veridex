@@ -1,0 +1,29 @@
+{
+  "name": "veridex",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "setup:wallet": "node scripts/setup_wallet.js",
+    "agent:register": "node scripts/register_agent.js",
+    "agent:verify": "node scripts/verify_agent.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jotel-dev/veridex.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jotel-dev/veridex/issues"
+  },
+  "homepage": "https://github.com/jotel-dev/veridex#readme",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "ethers": "^6.17.0",
+    "viem": "^2.56.0"
+  }
+}
