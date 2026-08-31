@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node scripts/test_safesend.js",
+    "test:safesend": "node scripts/test_safesend.js",
+    "test:rpc": "node scripts/test_rpc.js",
     "setup:wallet": "node scripts/setup_wallet.js",
     "agent:register": "node scripts/register_agent.js",
     "agent:verify": "node scripts/verify_agent.js"
@@ -22,6 +24,8 @@
   },
   "homepage": "https://github.com/jotel-dev/veridex#readme",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0",
+    "@celo/attribution-tags": "^0.3.0",
     "dotenv": "^17.4.2",
     "ethers": "^6.17.0",
     "viem": "^2.56.0"

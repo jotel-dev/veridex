@@ -7,14 +7,15 @@
 const { ethers } = require('ethers');
 const { ERC8004Client } = require('../src/agent/erc8004');
 const { ERC8004 } = require('../src/config/constants');
-const { RPC_ENDPOINTS } = require('../src/utils/provider');
+const { getRpcEndpoints } = require('../src/utils/provider');
 require('dotenv').config();
 
 async function main() {
   const agentId = process.argv[2] || 9797;
   
   let provider = null;
-  for (const rpc of RPC_ENDPOINTS) {
+  const endpoints = getRpcEndpoints();
+  for (const rpc of endpoints) {
     try {
       const p = new ethers.JsonRpcProvider(rpc, { chainId: 42220, name: 'celo' }, { staticNetwork: true });
       await p.getBlockNumber();

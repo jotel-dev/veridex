@@ -28,11 +28,38 @@ npm install
 ### 2. Environment Configuration
 The project credentials are saved in `.env` (automatically gitignored). See `.env.example` for the required configuration parameters.
 
-### 3. Run Agent Registration & Verification
+### 3. Run SafeSend Pipeline & Test Suite
 ```bash
+# Run the SafeSend security & transfer test suite
+npm test
+
+# Test RPC connection against configured Chainstack endpoint
+npm run test:rpc
+
 # Register agent or verify allocation on Celo Mainnet
 npm run agent:register
 
 # Inspect any registered ERC-8004 agent by ID
-npm run agent:verify 500
+npm run agent:verify 9797
 ```
+
+## SafeSend Pipeline Architecture
+
+SafeSend is a fraud-prevention gate for stablecoin transfers on Celo:
+
+1. **Intake**: Parses forwarded messages, URLs, or explicit transfer intents (`{ recipient, amount }`).
+2. **Scam Detection**: Multi-layer heuristic analyzer for:
+   - Suspicious URLs, URL shorteners, lookalike/typosquatting domains, high-risk TLDs (`.zip`, `.mov`, etc.).
+   - Urgency and coercion patterns ("act now", "account suspended").
+   - Fake airdrops and reward lures ("you've won", "free 1000 USDT").
+   - Phishing & credential theft attempts (seed phrases, private keys).
+   - Claude LLM fallback for ambiguous cases.
+3. **Security Gate**:
+   - `HIGH RISK`: Blocks flow, halts execution, returns structured risk report & TTS audio alert.
+   - `LOW / MEDIUM RISK`: Clears gate and proceeds to execution.
+4. **Sponsored USA₮ Transfer & Attribution**:
+   - Transfers USA₮ on Celo using the project Agent Wallet.
+   - Sponsoring gas (recipient / user does not pay gas).
+   - Integrates with x402 facilitator for gasless settlement.
+   - Attaches ERC-8021 on-chain attribution tag `celo_ef9178addda4` via `@celo/attribution-tags` (`toDataSuffix(['veridex', attributionTag])`).
+

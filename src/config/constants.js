@@ -2,17 +2,20 @@
  * Veridex Protocol - Constants & Network Configuration
  */
 
+require('dotenv').config();
+
 module.exports = {
   NETWORKS: {
     CELO_MAINNET: {
       chainId: 42220,
       name: 'Celo Mainnet',
       rpcUrls: [
+        process.env.CELO_RPC_URL,
         'https://forno.celo.org',
         'https://1rpc.io/celo',
         'https://rpc.ankr.com/celo',
         'https://celo.drpc.org'
-      ],
+      ].filter(Boolean),
       blockExplorer: 'https://celoscan.io',
       nativeCurrency: {
         name: 'CELO',
@@ -24,9 +27,10 @@ module.exports = {
       chainId: 11142220,
       name: 'Celo Sepolia Testnet',
       rpcUrls: [
+        process.env.CELO_SEPOLIA_RPC_URL,
         'https://forno.celo-sepolia.celo-testnet.org',
         'https://celo-sepolia.drpc.org'
-      ],
+      ].filter(Boolean),
       blockExplorer: 'https://sepolia.celoscan.io',
       nativeCurrency: {
         name: 'CELO',

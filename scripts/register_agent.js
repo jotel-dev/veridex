@@ -8,8 +8,7 @@
 const { ethers } = require('ethers');
 const { AgentWallet } = require('../src/agent/agentWallet');
 const { ERC8004Client } = require('../src/agent/erc8004');
-const { ERC8004, NETWORKS } = require('../src/config/constants');
-const { RPC_ENDPOINTS } = require('../src/utils/provider');
+const { getRpcEndpoints } = require('../src/utils/provider');
 require('dotenv').config();
 
 async function main() {
@@ -26,7 +25,8 @@ async function main() {
   let signer = null;
   let activeRpc = null;
 
-  for (const rpc of RPC_ENDPOINTS) {
+  const endpoints = getRpcEndpoints();
+  for (const rpc of endpoints) {
     try {
       const p = new ethers.JsonRpcProvider(rpc, { chainId: 42220, name: 'celo' }, { staticNetwork: true });
       const b = await p.getBalance('0xEd1E7722c3fC67f31B9bCdCF7B71770bB2989321');
