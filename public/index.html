@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Veridex — Autonomous Scam-Detection Gate for Celo Stablecoin Transfers</title>
+  <meta name="description" content="Veridex checks messages, links, and addresses for fraud signals before executing stablecoin transfers over x402 on Celo.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-background">
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand-container">
+      <div class="brand-logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L3 6.5V11.5C3 16.5 6.8 21.2 12 22.5C17.2 21.2 21 16.5 21 11.5V6.5L12 2Z" fill="url(#brandGrad)" stroke="#35D07F" stroke-width="1.5"/>
+          <path d="M9 12L11 14L15 10" stroke="#0A0E17" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs>
+            <linearGradient id="brandGrad" x1="3" y1="2" x2="21" y2="22.5" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#35D07F"/>
+              <stop offset="1" stop-color="#10B981"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1 class="brand-name">Veridex</h1>
+        <span class="brand-badge">Celo Agents at Work</span>
+      </div>
+    </div>
+
+    <div class="network-badges">
+      <div class="badge badge-identity" title="ERC-8004 On-Chain Registered Identity">
+        <span class="badge-dot"></span>
+        <span>Agent ID: <strong>#9797</strong></span>
+      </div>
+      <div class="badge badge-network">
+        <span class="badge-dot live"></span>
+        <span>Celo Sepolia</span>
+      </div>
+      <div class="badge badge-tag" title="ERC-8021 Attribution Tag">
+        <span>Tag: <code>celo_ef9178addda4</code></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Hero Intro -->
+    <section class="hero-section">
+      <h2 class="hero-title">Scam-Detection Gate for Stablecoins</h2>
+      <p class="hero-subtitle">
+        Veridex inspects forwarded chats, payment links, and recipient addresses for fraud vectors before executing transfers over x402 with gas sponsorship.
+      </p>
+    </section>
+
+    <!-- Main Workspace -->
+    <div class="workspace-grid">
+      <!-- Intake Card -->
+      <section class="card intake-card">
+        <div class="card-header">
+          <div class="card-header-left">
+            <span class="step-num">1</span>
+            <h3 class="card-title">Intake & Security Scan</h3>
+          </div>
+          <span class="hint">Paste forwarded chat, URL, or invoice</span>
+        </div>
+
+        <!-- Quick Sample Presets -->
+        <div class="presets-section">
+          <span class="presets-label">Test Templates:</span>
+          <div class="preset-buttons">
+            <button type="button" class="preset-chip chip-danger" data-preset="airdrop">
+              <span class="chip-icon">🚨</span> Fake Airdrop (.zip)
+            </button>
+            <button type="button" class="preset-chip chip-danger" data-preset="seedphrase">
+              <span class="chip-icon">⛔</span> Seed Phrase Phishing
+            </button>
+            <button type="button" class="preset-chip chip-warning" data-preset="shortener">
+              <span class="chip-icon">🔗</span> URL Shortener Bait
+            </button>
+            <button type="button" class="preset-chip chip-success" data-preset="clean">
+              <span class="chip-icon">🛡️</span> Clean Invoice ($1.00)
+            </button>
+          </div>
+        </div>
+
+        <form id="safesend-form" class="safesend-form">
+          <div class="form-group">
+            <label for="input-text" class="form-label">Message, URL, or Payment Prompt</label>
+            <textarea 
+              id="input-text" 
+              name="text" 
+              class="form-textarea" 
+              rows="4" 
+              placeholder="e.g. 'Transfer 1.00 USDC to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 for invoice #1042' or paste a forwarded Telegram message..."
+              required
+            ></textarea>
+          </div>
+
+          <!-- Optional Manual Fields -->
+          <div class="form-row">
+            <div class="form-group flex-2">
+              <label for="input-recipient" class="form-label">Recipient EVM Address (Auto-Extracted)</label>
+              <input 
+                type="text" 
+                id="input-recipient" 
+                name="recipient" 
+                class="form-input font-mono" 
+                placeholder="0x..."
+              >
+            </div>
+            <div class="form-group flex-1">
+              <label for="input-amount" class="form-label">Amount (USDC / USA₮)</label>
+              <input 
+                type="number" 
+                id="input-amount" 
+                name="amount" 
+                class="form-input" 
+                placeholder="1.00" 
+                step="0.01" 
+                min="0.01"
+                value="1.00"
+              >
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" id="btn-clear" class="btn btn-secondary">Clear</button>
+            <button type="submit" id="btn-analyze" class="btn btn-primary">
+              <span class="btn-spinner hidden" id="analyze-spinner"></span>
+              <span class="btn-text">🛡️ Analyze & SafeSend</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Dynamic Response Section -->
+      <section class="card result-card" id="result-card">
+        <div class="card-header">
+          <div class="card-header-left">
+            <span class="step-num">2</span>
+            <h3 class="card-title">Security & Settlement Verdict</h3>
+          </div>
+          <span id="verdict-status-pill" class="status-pill pill-idle">Awaiting Input</span>
+        </div>
+
+        <!-- Idle State -->
+        <div id="state-idle" class="result-state state-idle">
+          <div class="idle-icon-wrap">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4A5568" stroke-width="1.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <p class="idle-text">Enter text or click a test template to run fraud evaluation.</p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="state-loading" class="result-state state-loading hidden">
+          <div class="pulse-ring"></div>
+          <p class="loading-text">Scanning for scam heuristics, lookalikes, and phishing lures...</p>
+        </div>
+
+        <!-- High Risk Blocked State -->
+        <div id="state-high-risk" class="result-state state-danger hidden">
+          <div class="alert-banner alert-danger">
+            <div class="alert-icon-box">🚫</div>
+            <div class="alert-content">
+              <div class="alert-header-row">
+                <h4 class="alert-title">HIGH RISK DETECTED — TRANSFER BLOCKED</h4>
+                <span class="risk-badge badge-high">Score: <strong id="risk-score-high">100</strong>/100</span>
+              </div>
+              <p class="alert-subtitle">Veridex security gate has intercepted and blocked this transaction to protect your funds.</p>
+            </div>
+          </div>
+
+          <!-- Browser TTS Audio Box -->
+          <div class="audio-notice-box">
+            <div class="audio-header">
+              <div class="audio-indicator">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
+              <span class="audio-title">Voice Security Alert (Browser Speech Synthesis)</span>
+            </div>
+            <p id="tts-speech-text" class="audio-text">"Warning! This transfer has been blocked. The message contains dangerous scam signals attempting to compromise your funds."</p>
+            <div class="audio-controls">
+              <button type="button" id="btn-replay-audio" class="btn btn-audio">
+                <span>🔊 Replay Voice Alert</span>
+              </button>
+              <button type="button" id="btn-stop-audio" class="btn btn-audio btn-audio-stop">
+                <span>⏹️ Stop Voice</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Reasons List -->
+          <div class="threat-findings">
+            <h5 class="findings-title">Identified Threat Vectors:</h5>
+            <ul id="danger-reasons-list" class="threat-list"></ul>
+          </div>
+        </div>
+
+        <!-- Low / Medium Risk Cleared State -->
+        <div id="state-cleared" class="result-state state-success hidden">
+          <div class="alert-banner alert-success">
+            <div class="alert-icon-box">✅</div>
+            <div class="alert-content">
+              <div class="alert-header-row">
+                <h4 class="alert-title">SECURITY GATE CLEARED</h4>
+                <span class="risk-badge badge-low">Score: <strong id="risk-score-cleared">0</strong>/100</span>
+              </div>
+              <p class="alert-subtitle">No phishing, malicious lookalikes, or fraud vectors detected. Safe to proceed.</p>
+            </div>
+          </div>
+
+          <div class="scan-details-box">
+            <h5 class="findings-title">Security Evaluation:</h5>
+            <ul id="cleared-reasons-list" class="threat-list list-success"></ul>
+          </div>
+
+          <!-- Transfer Confirmation Gate -->
+          <div class="transfer-confirm-box" id="transfer-confirm-box">
+            <h5 class="confirm-box-title">Confirm Transfer Details</h5>
+            <div class="transfer-summary-grid">
+              <div class="summary-item">
+                <span class="summary-label">Payee Recipient</span>
+                <span id="confirm-recipient" class="summary-val font-mono">0x...</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Amount</span>
+                <span id="confirm-amount" class="summary-val text-accent">1.00 USDC</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Gas Fee</span>
+                <span class="summary-val text-accent">Sponsored ($0.00)</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Settlement Rail</span>
+                <span class="summary-val">x402 Facilitator (EIP-3009)</span>
+              </div>
+            </div>
+
+            <div class="attribution-note">
+              <span>🏷️ On-Chain Attribution Tag Attached: <code>celo_ef9178addda4</code> (ERC-8021)</span>
+            </div>
+
+            <button type="button" id="btn-confirm-transfer" class="btn btn-confirm">
+              <span class="btn-spinner hidden" id="confirm-spinner"></span>
+              <span class="btn-text">⚡ Confirm & Execute Over x402</span>
+            </button>
+          </div>
+
+          <!-- Execution Success Receipt -->
+          <div class="receipt-box hidden" id="receipt-box">
+            <div class="receipt-header">
+              <span class="receipt-icon">🎉</span>
+              <div>
+                <h4 class="receipt-title">Settlement Successful on Celo Sepolia!</h4>
+                <p class="receipt-subtitle">Transaction verified and settled via x402 Facilitator relayer.</p>
+              </div>
+            </div>
+            <div class="receipt-details">
+              <div class="receipt-row">
+                <span class="receipt-label">Transaction Hash:</span>
+                <a id="receipt-tx-link" href="#" target="_blank" rel="noopener noreferrer" class="receipt-link font-mono">0x...</a>
+              </div>
+              <div class="receipt-row">
+                <span class="receipt-label">Payer Wallet:</span>
+                <span id="receipt-payer" class="font-mono">0x...</span>
+              </div>
+              <div class="receipt-row">
+                <span class="receipt-label">Recipient:</span>
+                <span id="receipt-payee" class="font-mono">0x...</span>
+              </div>
+              <div class="receipt-row">
+                <span class="receipt-label">Attribution Tag:</span>
+                <span id="receipt-tag" class="badge-tag-inline">celo_ef9178addda4</span>
+              </div>
+            </div>
+            <a id="receipt-btn-explorer" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-explorer">
+              <span>View on Celoscan Explorer ↗</span>
+            </a>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Protocol Architecture Footer -->
+    <footer class="footer">
+      <div class="footer-col">
+        <h6>About Veridex</h6>
+        <p>Autonomous fraud prevention and stablecoin transfer gate for the Celo Ecosystem.</p>
+      </div>
+      <div class="footer-col">
+        <h6>Celo Hackathon Track</h6>
+        <p>Track 2: Real World Adoption — Best Stablecoin Adoption subtrack.</p>
+      </div>
+      <div class="footer-col">
+        <h6>Attribution & Rails</h6>
+        <p>ERC-8004 Identity #9797 • x402 Gasless Settlement • ERC-8021 Attribution Tag <code>celo_ef9178addda4</code>.</p>
+      </div>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
