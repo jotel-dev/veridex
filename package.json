@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node scripts/test_safesend.js",
     "test:safesend": "node scripts/test_safesend.js",
+    "test:testnet": "node scripts/run_testnet_safesend.js",
     "test:rpc": "node scripts/test_rpc.js",
     "setup:wallet": "node scripts/setup_wallet.js",
     "agent:register": "node scripts/register_agent.js",

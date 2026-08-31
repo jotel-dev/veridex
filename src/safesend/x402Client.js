@@ -1,7 +1,7 @@
 /**
  * Veridex - x402 Facilitator Client
  * 
- * Interacts with Celo's native x402 Facilitator (api.x402.celo.org)
+ * Interacts with Celo's native x402 Facilitator (api.x402.celo.org / api.x402.sepolia.celo.org)
  * for gasless stablecoin settlement using EIP-3009 transferWithAuthorization.
  */
 
@@ -19,6 +19,7 @@ class X402FacilitatorClient {
    * @param {string} [apiKey] - Optional x402 API key
    */
   constructor(network = 'mainnet', apiKey = process.env.X402_API_KEY) {
+    this.network = network;
     this.baseUrl = network === 'sepolia' ? X402_ENDPOINTS.SEPOLIA : X402_ENDPOINTS.MAINNET;
     this.apiKey = apiKey;
   }
@@ -36,9 +37,55 @@ class X402FacilitatorClient {
   }
 
   /**
+   * Build complete V1 Verify / Settle Wire Request
+   */
+  static buildV1Request({
+    networkName = 'celo-sepolia',
+    tokenAddress,
+    payerAddress,
+    recipientAddress,
+    amount,
+    validBefore = Math.floor(Date.now() / 1000) + 3600,
+    nonce = ethers.hexlify(ethers.randomBytes(32)),
+    signature,
+    description = 'Veridex SafeSend Transfer',
+    resource = 'https://veridex.network/safesend'
+  }) {
+    return {
+      x402Version: 1,
+      paymentPayload: {
+        x402Version: 1,
+        scheme: 'exact',
+        network: networkName,
+        payload: {
+          signature,
+          authorization: {
+            from: payerAddress,
+            to: recipientAddress,
+            value: amount.toString(),
+            validAfter: "0",
+            validBefore: validBefore.toString(),
+            nonce
+          }
+        }
+      },
+      paymentRequirements: {
+        scheme: 'exact',
+        network: networkName,
+        maxAmountRequired: amount.toString(),
+        resource,
+        description,
+        payTo: recipientAddress,
+        maxTimeoutSeconds: 3600,
+        asset: tokenAddress
+      }
+    };
+  }
+
+  /**
    * Verify an x402 payment authorization before submitting
    * @param {object} paymentPayload 
-   * @returns {Promise<{ valid: boolean, details: any }>}
+   * @returns {Promise<{ valid: boolean, status: number, data: any }>}
    */
   async verifyPayment(paymentPayload) {
     try {
@@ -52,7 +99,7 @@ class X402FacilitatorClient {
       });
       const data = await res.json();
       return {
-        valid: res.ok,
+        valid: res.ok && (data.isValid === true || data.valid === true),
         status: res.status,
         data
       };
@@ -84,50 +131,6 @@ class X402FacilitatorClient {
       throw new Error(`x402 settlement error (${res.status}): ${JSON.stringify(data)}`);
     }
     return data;
-  }
-
-  /**
-   * Build EIP-712 EIP-3009 TransferWithAuthorization struct
-   */
-  static buildAuthorizationTypedData({
-    tokenName = 'Tether USD',
-    tokenAddress,
-    chainId = 42220,
-    from,
-    to,
-    value,
-    validAfter = 0,
-    validBefore = Math.floor(Date.now() / 1000) + 3600,
-    nonce = ethers.hexlify(ethers.randomBytes(32))
-  }) {
-    const domain = {
-      name: tokenName,
-      version: '1',
-      chainId,
-      verifyingContract: tokenAddress
-    };
-
-    const types = {
-      TransferWithAuthorization: [
-        { name: 'from', type: 'address' },
-        { name: 'to', type: 'address' },
-        { name: 'value', type: 'uint256' },
-        { name: 'validAfter', type: 'uint256' },
-        { name: 'validBefore', type: 'uint256' },
-        { name: 'nonce', type: 'bytes32' }
-      ]
-    };
-
-    const message = {
-      from,
-      to,
-      value: value.toString(),
-      validAfter,
-      validBefore,
-      nonce
-    };
-
-    return { domain, types, message };
   }
 }
 

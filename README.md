@@ -33,6 +33,9 @@ The project credentials are saved in `.env` (automatically gitignored). See `.en
 # Run the SafeSend security & transfer test suite
 npm test
 
+# Run end-to-end SafeSend testnet execution over x402 facilitator
+npm run test:testnet
+
 # Test RPC connection against configured Chainstack endpoint
 npm run test:rpc
 
@@ -42,6 +45,14 @@ npm run agent:register
 # Inspect any registered ERC-8004 agent by ID
 npm run agent:verify 9797
 ```
+
+## Live Testnet Verification (Celo Sepolia)
+
+- **Testnet Facilitator:** `https://api.x402.sepolia.celo.org`
+- **Payer (Test User Wallet):** `0xF0f815Fa6e862Dc690F9C650B24b93F4f3b0387d`
+- **Testnet Token (USDC):** [`0x01C5C0122039549AD1493B8220cABEdD739BC44E`](https://sepolia.celoscan.io/address/0x01C5C0122039549AD1493B8220cABEdD739BC44E)
+- **Settlement Transaction Hash:** [`0x86d735c25d8bd1261b64c160c78771ebdd057987e9b97692739f2112ad7c380e`](https://sepolia.celoscan.io/tx/0x86d735c25d8bd1261b64c160c78771ebdd057987e9b97692739f2112ad7c380e)
+- **Attribution Tag:** `celo_ef9178addda4` (Data suffix: `0x766572696465782c63656c6f5f656639313738616464646134190080218021802180218021802180218021`)
 
 ## SafeSend Pipeline Architecture
 
