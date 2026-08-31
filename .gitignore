@@ -13,6 +13,7 @@
 *.pk
 keys/
 secrets/
+config/test_user.json
 
 # Node
 node_modules/

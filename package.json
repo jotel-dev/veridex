@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node src/server/index.js",
+    "server": "node src/server/index.js",
     "test": "node scripts/test_safesend.js",
     "test:safesend": "node scripts/test_safesend.js",
     "test:testnet": "node scripts/run_testnet_safesend.js",
@@ -27,8 +29,10 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
     "@celo/attribution-tags": "^0.3.0",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "ethers": "^6.17.0",
+    "express": "^5.2.1",
     "viem": "^2.56.0"
   }
 }
