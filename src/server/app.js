@@ -2,7 +2,7 @@
  * Veridex - REST API & Web Application Server
  * 
  * Exposes the Veridex security & transfer pipeline as a clean REST API
- * for web clients, MiniPay-adjacent frontends, and bots.
+ * supporting interactive client-side MetaMask EIP-3009 signing and x402 settlement.
  */
 
 const express = require('express');
@@ -23,6 +23,44 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.resolve(__dirname, '../../public')));
 
+// Network Configurations
+const NETWORKS_CONFIG = {
+  mainnet: {
+    name: 'Celo Mainnet',
+    chainId: 42220,
+    networkWireName: 'celo',
+    rpcUrl: process.env.CELO_RPC_URL || 'https://forno.celo.org',
+    explorer: 'https://celoscan.io',
+    token: {
+      address: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e',
+      symbol: 'USA₮',
+      name: 'Tether USD',
+      version: '1',
+      decimals: 6
+    }
+  },
+  sepolia: {
+    name: 'Celo Sepolia Testnet',
+    chainId: 11142220,
+    networkWireName: 'celo-sepolia',
+    rpcUrl: process.env.CELO_SEPOLIA_RPC_URL || 'https://forno.celo-sepolia.celo-testnet.org',
+    explorer: 'https://sepolia.celoscan.io',
+    token: {
+      address: '0x01C5C0122039549AD1493B8220cABEdD739BC44E',
+      symbol: 'USDC',
+      name: 'USDC',
+      version: '2',
+      decimals: 6
+    }
+  }
+};
+
+const ERC20_ABI = [
+  'function balanceOf(address) view returns (uint256)',
+  'function symbol() view returns (string)',
+  'function decimals() view returns (uint8)'
+];
+
 // Helper to load Hackathon configuration
 function getHackathonConfig() {
   try {
@@ -40,7 +78,7 @@ function getHackathonConfig() {
 
 /**
  * GET /api/info
- * Public protocol & agent identity metadata
+ * Public protocol, token contract addresses, and agent metadata
  */
 app.get('/api/info', (req, res) => {
   const config = getHackathonConfig();
@@ -50,9 +88,7 @@ app.get('/api/info', (req, res) => {
     agentId: config.agentId || '9797',
     agentWallet: config.agentWallet || '0xEd1E7722c3fC67f31B9bCdCF7B71770bB2989321',
     attributionTag: config.attributionTag || 'celo_ef9178addda4',
-    network: 'celo-sepolia',
-    chainId: 11142220,
-    mainnetReady: true,
+    networks: NETWORKS_CONFIG,
     version: '1.0.0'
   });
 });
@@ -62,6 +98,45 @@ app.get('/api/info', (req, res) => {
  */
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+/**
+ * GET /api/balance
+ * Query token balance for connected wallet address
+ */
+app.get('/api/balance', async (req, res) => {
+  try {
+    const { address, network = 'mainnet' } = req.query;
+    if (!address || !ethers.isAddress(address.toLowerCase())) {
+      return res.status(400).json({ success: false, error: 'Invalid address' });
+    }
+
+    const netCfg = NETWORKS_CONFIG[network] || NETWORKS_CONFIG.mainnet;
+    const provider = new ethers.JsonRpcProvider(netCfg.rpcUrl);
+    const tokenContract = new ethers.Contract(netCfg.token.address, ERC20_ABI, provider);
+
+    const [balanceRaw, celoBalanceRaw] = await Promise.all([
+      tokenContract.balanceOf(address).catch(() => 0n),
+      provider.getBalance(address).catch(() => 0n)
+    ]);
+
+    const formattedToken = ethers.formatUnits(balanceRaw, netCfg.token.decimals);
+    const formattedCelo = ethers.formatEther(celoBalanceRaw);
+
+    res.json({
+      success: true,
+      address,
+      network,
+      tokenSymbol: netCfg.token.symbol,
+      tokenBalance: formattedToken,
+      rawTokenBalance: balanceRaw.toString(),
+      celoBalance: formattedCelo,
+      tokenAddress: netCfg.token.address
+    });
+  } catch (err) {
+    console.error('Error fetching balance:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 /**
@@ -104,7 +179,7 @@ app.post('/api/safesend/check', async (req, res) => {
       evaluatedBy: scamReport.evaluatedBy,
       extractedEntities: scamReport.extractedEntities,
       resolvedRecipient,
-      resolvedAmount: resolvedAmount || '1.00',
+      resolvedAmount: resolvedAmount || '0.10',
       isTransferRequest,
       canProceed
     });
@@ -119,24 +194,67 @@ app.post('/api/safesend/check', async (req, res) => {
 
 /**
  * POST /api/safesend/execute
- * Execute the transfer / x402 settlement on-chain
+ * Settle client-signed (MetaMask) or testnet x402 payment
  */
 app.post('/api/safesend/execute', async (req, res) => {
   try {
-    const { recipient, amount = '1.00', network = 'sepolia', simulateOnly = false } = req.body;
-
-    if (!recipient || !ethers.isAddress(recipient)) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid or missing recipient EVM address: ${recipient}`
-      });
-    }
+    const { 
+      recipient, 
+      amount, 
+      network = 'mainnet', 
+      signedPayload, 
+      payer
+    } = req.body;
 
     const config = getHackathonConfig();
     const attributionTag = config.attributionTag || 'celo_ef9178addda4';
     const dataSuffix = toDataSuffix(['veridex', attributionTag]);
+    const netCfg = NETWORKS_CONFIG[network] || NETWORKS_CONFIG.mainnet;
 
-    // Testnet execution via x402 facilitator with isolated test user wallet
+    // Case 1: Client signed with MetaMask (Option A)
+    if (signedPayload) {
+      console.log(`\n[API Execute] Received MetaMask-signed authorization for ${netCfg.name}:`);
+      console.log(`Payer: ${payer || signedPayload.paymentPayload?.payload?.authorization?.from}`);
+      console.log(`Recipient: ${recipient}`);
+      console.log(`Amount: ${amount} ${netCfg.token.symbol}`);
+
+      const x402Client = new X402FacilitatorClient(network === 'sepolia' ? 'sepolia' : 'mainnet');
+      
+      // Verify
+      console.log(`Verifying payload with ${network} facilitator...`);
+      const verifyRes = await x402Client.verifyPayment(signedPayload);
+      if (!verifyRes.valid) {
+        console.error('Facilitator verification failed:', verifyRes.data);
+        return res.status(400).json({
+          success: false,
+          error: 'Facilitator verification failed: ' + (verifyRes.data?.invalidReasonDetails || verifyRes.data?.invalidReason || JSON.stringify(verifyRes.data)),
+          details: verifyRes.data
+        });
+      }
+
+      // Settle
+      console.log(`Submitting settlement to ${network} facilitator...`);
+      const settleRes = await x402Client.settlePayment(signedPayload);
+      console.log('Facilitator Settle Response:', settleRes);
+
+      const txHash = settleRes.transaction || settleRes.txHash;
+
+      return res.json({
+        success: true,
+        network: netCfg.networkWireName,
+        txHash,
+        explorerUrl: `${netCfg.explorer}/tx/${txHash}`,
+        payer: settleRes.payer || payer,
+        recipient,
+        amount,
+        token: netCfg.token.symbol,
+        attributionTag,
+        dataSuffix,
+        facilitator: network === 'sepolia' ? 'https://api.x402.sepolia.celo.org' : 'https://api.x402.celo.org'
+      });
+    }
+
+    // Case 2: Backend-executed testnet rehearsal with test user wallet
     if (network === 'sepolia') {
       const userConfigPath = path.resolve(__dirname, '../../config/test_user.json');
       if (!fs.existsSync(userConfigPath)) {
@@ -145,16 +263,15 @@ app.post('/api/safesend/execute', async (req, res) => {
       const userData = JSON.parse(fs.readFileSync(userConfigPath, 'utf8'));
       const userWallet = new ethers.Wallet(userData.privateKey);
 
-      const tokenAddress = '0x01C5C0122039549AD1493B8220cABEdD739BC44E'; // Celo Sepolia USDC
-      const parsedAmount = ethers.parseUnits(amount.toString(), 6).toString();
+      const tokenAddress = netCfg.token.address;
+      const parsedAmount = ethers.parseUnits(amount.toString(), netCfg.token.decimals).toString();
       const validBefore = Math.floor(Date.now() / 1000) + 3600;
       const nonce = ethers.hexlify(ethers.randomBytes(32));
 
-      // Sign EIP-3009 TransferWithAuthorization
       const domain = {
-        name: 'USDC',
-        version: '2',
-        chainId: 11142220,
+        name: netCfg.token.name,
+        version: netCfg.token.version,
+        chainId: netCfg.chainId,
         verifyingContract: tokenAddress
       };
 
@@ -180,9 +297,8 @@ app.post('/api/safesend/execute', async (req, res) => {
 
       const signature = await userWallet.signTypedData(domain, types, authMessage);
 
-      // Build wire request
       const wirePayload = X402FacilitatorClient.buildV1Request({
-        networkName: 'celo-sepolia',
+        networkName: netCfg.networkWireName,
         tokenAddress,
         payerAddress: userWallet.address,
         recipientAddress: recipient,
@@ -198,7 +314,7 @@ app.post('/api/safesend/execute', async (req, res) => {
       if (!verifyRes.valid) {
         return res.status(400).json({
           success: false,
-          error: 'Facilitator payment verification failed',
+          error: 'Facilitator verification failed',
           details: verifyRes.data
         });
       }
@@ -213,29 +329,18 @@ app.post('/api/safesend/execute', async (req, res) => {
         payer: settleRes.payer,
         recipient,
         amount,
-        token: 'USDC',
+        token: netCfg.token.symbol,
         attributionTag,
         dataSuffix,
         facilitator: 'https://api.x402.sepolia.celo.org'
       });
     }
 
-    // Mainnet or simulated execution
-    const transferService = new TransferService();
-    const transferResult = await transferService.executeSponsoredTransfer({
-      recipient,
-      amount,
-      simulateOnly
+    return res.status(400).json({
+      success: false,
+      error: 'Direct mainnet execution requires client-side MetaMask signature. Please connect MetaMask to sign.'
     });
 
-    return res.json({
-      success: true,
-      network: 'celo',
-      ...transferResult,
-      explorerUrl: transferResult.txHash ? `https://celoscan.io/tx/${transferResult.txHash}` : null,
-      attributionTag,
-      dataSuffix
-    });
   } catch (error) {
     console.error('Error in /api/safesend/execute:', error);
     return res.status(500).json({

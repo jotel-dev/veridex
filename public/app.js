@@ -1,85 +1,264 @@
 /**
- * Veridex - Frontend Application Logic
+ * Veridex - Frontend Application Logic with MetaMask EIP-3009 Signing
  * 
- * Interacts with Veridex REST API (/api/safesend/check & /api/safesend/execute)
- * and controls browser native SpeechSynthesis for voice security warnings.
+ * Supports:
+ * - MetaMask wallet connection & account management
+ * - Network switching (Celo Mainnet USA₮ / Celo Sepolia USDC)
+ * - Live balance polling
+ * - Fraud detection via /api/safesend/check
+ * - Native browser SpeechSynthesis voice warnings for high-risk alerts
+ * - In-browser cryptographic EIP-3009 typed data signing (TransferWithAuthorization)
+ * - Gasless settlement via Celo x402 Facilitator
  */
+
+// Network configurations
+const NETWORKS = {
+  mainnet: {
+    chainId: 42220,
+    hexChainId: '0xa4ec',
+    name: 'Celo Mainnet',
+    tokenSymbol: 'USA₮',
+    tokenName: 'Tether USD',
+    tokenVersion: '1',
+    tokenDecimals: 6,
+    tokenAddress: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e',
+    rpcUrl: 'https://forno.celo.org',
+    explorer: 'https://celoscan.io',
+    facilitatorNetwork: 'celo'
+  },
+  sepolia: {
+    chainId: 11142220,
+    hexChainId: '0xaa007c', // 11142220 in hex is 0xaa007c
+    name: 'Celo Sepolia Testnet',
+    tokenSymbol: 'USDC',
+    tokenName: 'USDC',
+    tokenVersion: '2',
+    tokenDecimals: 6,
+    tokenAddress: '0x01C5C0122039549AD1493B8220cABEdD739BC44E',
+    rpcUrl: 'https://forno.celo-sepolia.celo-testnet.org',
+    explorer: 'https://sepolia.celoscan.io',
+    facilitatorNetwork: 'celo-sepolia'
+  }
+};
+
+const ATTRIBUTION_TAG = 'celo_ef9178addda4';
 
 // Presets Dictionary
 const PRESETS = {
   airdrop: {
     text: "Claim your free 5,000 USDT airdrop immediately at https://c3lo-airdrop-reward.zip/claim before time runs out!",
     recipient: "",
-    amount: "1.00"
+    amount: "0.10"
   },
   seedphrase: {
     text: "Your wallet has been temporarily suspended! Send your 12-word seed phrase or private key immediately to restore access.",
     recipient: "",
-    amount: "1.00"
+    amount: "0.10"
   },
   shortener: {
     text: "Congratulations! You won 1,000 cUSD! Claim here: https://bit.ly/celo-reward-claim",
     recipient: "",
-    amount: "1.00"
+    amount: "0.10"
   },
   clean: {
-    text: "Transfer 1.00 USDC to verified merchant 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 for Veridex SafeSend test invoice #1042",
+    text: "Transfer 0.10 USA₮ to verified merchant 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 for coffee invoice #1042",
     recipient: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-    amount: "1.00"
+    amount: "0.10"
   }
 };
 
+// State Variables
+let currentAccount = null;
+let currentNetworkKey = 'mainnet';
+let currentSpeechText = "";
+let currentTransferPayload = null;
+
 // DOM Elements
+const selectNetwork = document.getElementById('select-network');
+const btnConnectWallet = document.getElementById('btn-connect-wallet');
+const connectWalletText = document.getElementById('connect-wallet-text');
+const walletBalancePill = document.getElementById('wallet-balance-pill');
+const walletBalanceAmount = document.getElementById('wallet-balance-amount');
+const walletBalanceSymbol = document.getElementById('wallet-balance-symbol');
+
 const form = document.getElementById('safesend-form');
 const inputText = document.getElementById('input-text');
 const inputRecipient = document.getElementById('input-recipient');
 const inputAmount = document.getElementById('input-amount');
+const tokenSymbolLabels = document.querySelectorAll('.token-symbol-label');
 const btnAnalyze = document.getElementById('btn-analyze');
 const btnClear = document.getElementById('btn-clear');
 const analyzeSpinner = document.getElementById('analyze-spinner');
 
-// States & Sections
+// Verdict & States
 const verdictPill = document.getElementById('verdict-status-pill');
 const stateIdle = document.getElementById('state-idle');
 const stateLoading = document.getElementById('state-loading');
 const stateHighRisk = document.getElementById('state-high-risk');
 const stateCleared = document.getElementById('state-cleared');
 
-// Danger elements
+// High Risk Elements
 const riskScoreHigh = document.getElementById('risk-score-high');
 const dangerReasonsList = document.getElementById('danger-reasons-list');
 const ttsSpeechText = document.getElementById('tts-speech-text');
 const btnReplayAudio = document.getElementById('btn-replay-audio');
 const btnStopAudio = document.getElementById('btn-stop-audio');
 
-// Cleared elements
+// Cleared Elements
 const riskScoreCleared = document.getElementById('risk-score-cleared');
 const clearedReasonsList = document.getElementById('cleared-reasons-list');
 const transferConfirmBox = document.getElementById('transfer-confirm-box');
+const confirmPayer = document.getElementById('confirm-payer');
 const confirmRecipient = document.getElementById('confirm-recipient');
 const confirmAmount = document.getElementById('confirm-amount');
+const confirmNetwork = document.getElementById('confirm-network');
 const btnConfirmTransfer = document.getElementById('btn-confirm-transfer');
 const confirmSpinner = document.getElementById('confirm-spinner');
 
-// Receipt elements
+// Receipt Elements
 const receiptBox = document.getElementById('receipt-box');
+const receiptTitle = document.getElementById('receipt-title');
 const receiptTxLink = document.getElementById('receipt-tx-link');
 const receiptPayer = document.getElementById('receipt-payer');
 const receiptPayee = document.getElementById('receipt-payee');
 const receiptBtnExplorer = document.getElementById('receipt-btn-explorer');
 
-// Current state cache
-let currentSpeechText = "";
-let currentTransferPayload = null;
+// Helper: Format EVM Address
+function formatAddress(addr) {
+  if (!addr) return '';
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
 
-// Speech Synthesis Helper
-function speakWarning(text) {
-  if (!('speechSynthesis' in window)) {
-    console.warn('Speech synthesis not supported in this browser.');
+// -------------------------------------------------------------
+// METAMASK & WALLET LOGIC
+// -------------------------------------------------------------
+
+async function updateWalletBalance() {
+  if (!currentAccount) return;
+  const net = NETWORKS[currentNetworkKey];
+  try {
+    const res = await fetch(`/api/balance?address=${currentAccount}&network=${currentNetworkKey}`);
+    const data = await res.json();
+    if (data.success) {
+      walletBalanceAmount.textContent = parseFloat(data.tokenBalance).toFixed(4);
+      walletBalanceSymbol.textContent = data.tokenSymbol;
+      walletBalancePill.classList.remove('hidden');
+    }
+  } catch (e) {
+    console.warn('Balance fetch error:', e);
+  }
+}
+
+async function connectWallet() {
+  if (typeof window.ethereum === 'undefined') {
+    alert('MetaMask is not installed. Please install MetaMask to interact with Veridex.');
     return;
   }
 
-  // Cancel any existing speech
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    if (accounts && accounts.length > 0) {
+      currentAccount = accounts[0];
+      connectWalletText.textContent = formatAddress(currentAccount);
+      btnConnectWallet.classList.add('btn-connected');
+      btnConnectWallet.title = `Connected: ${currentAccount}`;
+      
+      if (confirmPayer) {
+        confirmPayer.textContent = formatAddress(currentAccount);
+      }
+
+      await checkAndSwitchNetwork();
+      await updateWalletBalance();
+    }
+  } catch (err) {
+    console.error('Wallet connection error:', err);
+  }
+}
+
+async function checkAndSwitchNetwork() {
+  if (!window.ethereum) return;
+  const net = NETWORKS[currentNetworkKey];
+
+  try {
+    const currentChain = await window.ethereum.request({ method: 'eth_chainId' });
+    const targetChainHex = '0x' + net.chainId.toString(16);
+
+    if (currentChain.toLowerCase() !== targetChainHex.toLowerCase()) {
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: targetChainHex }]
+        });
+      } catch (switchError) {
+        // Chain not added to MetaMask yet
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: targetChainHex,
+              chainName: net.name,
+              nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 },
+              rpcUrls: [net.rpcUrl],
+              blockExplorerUrls: [net.explorer]
+            }]
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Network switch warning:', e);
+  }
+}
+
+// Listen to MetaMask account / chain changes
+if (typeof window.ethereum !== 'undefined') {
+  window.ethereum.on('accountsChanged', (accounts) => {
+    if (accounts.length > 0) {
+      currentAccount = accounts[0];
+      connectWalletText.textContent = formatAddress(currentAccount);
+      btnConnectWallet.classList.add('btn-connected');
+      if (confirmPayer) confirmPayer.textContent = formatAddress(currentAccount);
+      updateWalletBalance();
+    } else {
+      currentAccount = null;
+      connectWalletText.textContent = 'Connect MetaMask';
+      btnConnectWallet.classList.remove('btn-connected');
+      walletBalancePill.classList.add('hidden');
+      if (confirmPayer) confirmPayer.textContent = 'Not Connected';
+    }
+  });
+
+  window.ethereum.on('chainChanged', () => {
+    updateWalletBalance();
+  });
+}
+
+btnConnectWallet.addEventListener('click', connectWallet);
+
+// Network Selector Change
+selectNetwork.addEventListener('change', async (e) => {
+  currentNetworkKey = e.target.value;
+  const net = NETWORKS[currentNetworkKey];
+
+  // Update labels
+  tokenSymbolLabels.forEach(el => el.textContent = net.tokenSymbol);
+  if (confirmNetwork) confirmNetwork.textContent = `${net.name} (Chain ${net.chainId})`;
+
+  if (currentAccount) {
+    await checkAndSwitchNetwork();
+    await updateWalletBalance();
+  }
+});
+
+// -------------------------------------------------------------
+// BROWSER SPEECH SYNTHESIS (TTS)
+// -------------------------------------------------------------
+
+function speakWarning(text) {
+  if (!('speechSynthesis' in window)) {
+    console.warn('Speech synthesis not supported in browser.');
+    return;
+  }
   window.speechSynthesis.cancel();
 
   const utterance = new SpeechSynthesisUtterance(text);
@@ -87,7 +266,6 @@ function speakWarning(text) {
   utterance.pitch = 1.0;
   utterance.volume = 1.0;
 
-  // Try selecting an English voice
   const voices = window.speechSynthesis.getVoices();
   const preferredVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Premium')));
   if (preferredVoice) {
@@ -103,7 +281,10 @@ function stopSpeaking() {
   }
 }
 
-// Reset UI States
+// -------------------------------------------------------------
+// UI STATE CONTROLLER
+// -------------------------------------------------------------
+
 function hideAllStates() {
   stateIdle.classList.add('hidden');
   stateLoading.classList.add('hidden');
@@ -120,7 +301,7 @@ function setIdle() {
   stopSpeaking();
 }
 
-// Event Listeners: Presets
+// Presets
 document.querySelectorAll('.preset-chip').forEach(btn => {
   btn.addEventListener('click', () => {
     const presetKey = btn.getAttribute('data-preset');
@@ -128,33 +309,29 @@ document.querySelectorAll('.preset-chip').forEach(btn => {
     if (preset) {
       inputText.value = preset.text;
       inputRecipient.value = preset.recipient || '';
-      inputAmount.value = preset.amount || '1.00';
-      // Trigger submission automatically for instant test feedback
+      inputAmount.value = preset.amount || '0.10';
       form.dispatchEvent(new Event('submit'));
     }
   });
 });
 
-// Event Listener: Clear Button
 btnClear.addEventListener('click', () => {
   inputText.value = '';
   inputRecipient.value = '';
-  inputAmount.value = '1.00';
+  inputAmount.value = '0.10';
   setIdle();
 });
 
-// Event Listeners: Audio Controls
 btnReplayAudio.addEventListener('click', () => {
-  if (currentSpeechText) {
-    speakWarning(currentSpeechText);
-  }
+  if (currentSpeechText) speakWarning(currentSpeechText);
 });
 
-btnStopAudio.addEventListener('click', () => {
-  stopSpeaking();
-});
+btnStopAudio.addEventListener('click', stopSpeaking);
 
-// Event Listener: Form Submit (Analyze Step)
+// -------------------------------------------------------------
+// STEP 1: FRAUD & SCAM ANALYSIS
+// -------------------------------------------------------------
+
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -163,7 +340,7 @@ form.addEventListener('submit', async (e) => {
   const amount = inputAmount.value.trim();
 
   if (!text && !recipient) {
-    alert('Please enter a message, URL, or transfer recipient to analyze.');
+    alert('Please enter a message, URL, or payment recipient to analyze.');
     return;
   }
 
@@ -197,7 +374,6 @@ form.addEventListener('submit', async (e) => {
       currentSpeechText = result.speechExplanation || "Warning! This transfer has been blocked due to high fraud risk.";
       ttsSpeechText.textContent = `"${currentSpeechText}"`;
 
-      // Render reasons
       dangerReasonsList.innerHTML = '';
       (result.reasons || []).forEach(r => {
         const li = document.createElement('li');
@@ -206,8 +382,6 @@ form.addEventListener('submit', async (e) => {
       });
 
       stateHighRisk.classList.remove('hidden');
-
-      // Play Voice Alert
       speakWarning(currentSpeechText);
     } 
     // LOW / MEDIUM RISK FLOW
@@ -223,17 +397,19 @@ form.addEventListener('submit', async (e) => {
         clearedReasonsList.appendChild(li);
       });
 
-      // Update transfer fields
+      const net = NETWORKS[currentNetworkKey];
       const targetRecipient = result.resolvedRecipient || recipient || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
-      const targetAmount = result.resolvedAmount || amount || '1.00';
+      const targetAmount = result.resolvedAmount || amount || '0.10';
 
+      confirmPayer.textContent = currentAccount ? formatAddress(currentAccount) : 'MetaMask (Connect to sign)';
       confirmRecipient.textContent = targetRecipient;
-      confirmAmount.textContent = `${targetAmount} USDC`;
+      confirmAmount.textContent = `${targetAmount} ${net.tokenSymbol}`;
+      confirmNetwork.textContent = `${net.name} (Chain ${net.chainId})`;
 
       currentTransferPayload = {
         recipient: targetRecipient,
         amount: targetAmount,
-        network: 'sepolia'
+        network: currentNetworkKey
       };
 
       stateCleared.classList.remove('hidden');
@@ -249,35 +425,134 @@ form.addEventListener('submit', async (e) => {
   }
 });
 
-// Event Listener: Confirm & Execute Transfer
+// -------------------------------------------------------------
+// STEP 2: METAMASK EIP-3009 SIGNING & X402 SETTLEMENT
+// -------------------------------------------------------------
+
 btnConfirmTransfer.addEventListener('click', async () => {
   if (!currentTransferPayload) return;
 
+  // Ensure MetaMask is connected
+  if (!currentAccount) {
+    await connectWallet();
+    if (!currentAccount) {
+      alert('Please connect MetaMask to sign the transfer authorization.');
+      return;
+    }
+  }
+
+  const net = NETWORKS[currentNetworkKey];
+  await checkAndSwitchNetwork();
+
   btnConfirmTransfer.disabled = true;
   confirmSpinner.classList.remove('hidden');
-  btnConfirmTransfer.querySelector('.btn-text').textContent = 'Settling over x402...';
+  btnConfirmTransfer.querySelector('.btn-text').textContent = 'Waiting for MetaMask signature...';
 
   try {
+    // 1. Prepare EIP-712 EIP-3009 Typed Data
+    const rawAmount = ethers.parseUnits(currentTransferPayload.amount.toString(), net.tokenDecimals).toString();
+    const validBefore = Math.floor(Date.now() / 1000) + 3600;
+    const nonce = ethers.hexlify(ethers.randomBytes(32));
+
+    const domain = {
+      name: net.tokenName,
+      version: net.tokenVersion,
+      chainId: net.chainId,
+      verifyingContract: net.tokenAddress
+    };
+
+    const types = {
+      TransferWithAuthorization: [
+        { name: 'from', type: 'address' },
+        { name: 'to', type: 'address' },
+        { name: 'value', type: 'uint256' },
+        { name: 'validAfter', type: 'uint256' },
+        { name: 'validBefore', type: 'uint256' },
+        { name: 'nonce', type: 'bytes32' }
+      ]
+    };
+
+    const authMessage = {
+      from: currentAccount,
+      to: currentTransferPayload.recipient,
+      value: rawAmount,
+      validAfter: 0,
+      validBefore,
+      nonce
+    };
+
+    console.log('Requesting MetaMask signature for EIP-3009:', { domain, types, authMessage });
+
+    // 2. Request interactive signature from MetaMask
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const signature = await signer.signTypedData(domain, types, authMessage);
+    console.log('MetaMask signature received:', signature);
+
+    btnConfirmTransfer.querySelector('.btn-text').textContent = 'Settling over x402 Facilitator...';
+
+    // 3. Build wire payload for Celo x402 Facilitator
+    const signedPayload = {
+      x402Version: 1,
+      paymentPayload: {
+        x402Version: 1,
+        scheme: 'exact',
+        network: net.facilitatorNetwork,
+        payload: {
+          signature,
+          authorization: {
+            from: currentAccount,
+            to: currentTransferPayload.recipient,
+            value: rawAmount,
+            validAfter: "0",
+            validBefore: validBefore.toString(),
+            nonce
+          }
+        }
+      },
+      paymentRequirements: {
+        scheme: 'exact',
+        network: net.facilitatorNetwork,
+        maxAmountRequired: rawAmount,
+        resource: 'https://veridex.network/safesend',
+        description: `Veridex Transfer [tag:${ATTRIBUTION_TAG}]`,
+        payTo: currentTransferPayload.recipient,
+        maxTimeoutSeconds: 3600,
+        asset: net.tokenAddress
+      }
+    };
+
+    // 4. Submit to backend /api/safesend/execute
     const response = await fetch('/api/safesend/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(currentTransferPayload)
+      body: JSON.stringify({
+        signedPayload,
+        network: currentNetworkKey,
+        recipient: currentTransferPayload.recipient,
+        amount: currentTransferPayload.amount,
+        payer: currentAccount
+      })
     });
 
     const result = await response.json();
     if (!result.success) {
-      throw new Error(result.error || 'Settlement failed.');
+      throw new Error(result.error || 'Settlement failed on x402 facilitator.');
     }
 
-    // Hide confirm box, reveal receipt
+    // 5. Render Success Receipt
     transferConfirmBox.classList.add('hidden');
     receiptBox.classList.remove('hidden');
 
+    receiptTitle.textContent = `Settlement Successful on ${net.name}!`;
     receiptTxLink.textContent = result.txHash;
     receiptTxLink.href = result.explorerUrl;
-    receiptPayer.textContent = result.payer || '0xF0f8...387d (Test User)';
+    receiptPayer.textContent = result.payer;
     receiptPayee.textContent = result.recipient;
     receiptBtnExplorer.href = result.explorerUrl;
+
+    // Refresh balance
+    await updateWalletBalance();
 
   } catch (err) {
     console.error('Execution error:', err);
@@ -285,6 +560,19 @@ btnConfirmTransfer.addEventListener('click', async () => {
   } finally {
     btnConfirmTransfer.disabled = false;
     confirmSpinner.classList.add('hidden');
-    btnConfirmTransfer.querySelector('.btn-text').textContent = '⚡ Confirm & Execute Over x402';
+    btnConfirmTransfer.querySelector('.btn-text').textContent = '🦊 Sign with MetaMask & Settle over x402';
   }
 });
+
+// Check if wallet is already connected on load
+if (typeof window.ethereum !== 'undefined') {
+  window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
+    if (accounts && accounts.length > 0) {
+      currentAccount = accounts[0];
+      connectWalletText.textContent = formatAddress(currentAccount);
+      btnConnectWallet.classList.add('btn-connected');
+      if (confirmPayer) confirmPayer.textContent = formatAddress(currentAccount);
+      updateWalletBalance();
+    }
+  }).catch(() => {});
+}

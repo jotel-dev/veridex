@@ -9,6 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <!-- Ethers.js UMD -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
 </head>
 <body>
   <div class="app-background">
@@ -37,16 +39,33 @@
     </div>
 
     <div class="network-badges">
+      <!-- Network Selector -->
+      <div class="network-select-wrapper">
+        <select id="select-network" class="network-dropdown" title="Select Celo Network">
+          <option value="mainnet" selected>🟢 Celo Mainnet (USA₮)</option>
+          <option value="sepolia">🟡 Celo Sepolia (USDC)</option>
+        </select>
+      </div>
+
       <div class="badge badge-identity" title="ERC-8004 On-Chain Registered Identity">
         <span class="badge-dot"></span>
         <span>Agent ID: <strong>#9797</strong></span>
       </div>
-      <div class="badge badge-network">
-        <span class="badge-dot live"></span>
-        <span>Celo Sepolia</span>
-      </div>
+
       <div class="badge badge-tag" title="ERC-8021 Attribution Tag">
         <span>Tag: <code>celo_ef9178addda4</code></span>
+      </div>
+
+      <!-- Wallet Connect Button -->
+      <div class="wallet-connect-wrapper">
+        <button type="button" id="btn-connect-wallet" class="btn btn-connect">
+          <span class="btn-wallet-icon">🦊</span>
+          <span id="connect-wallet-text">Connect MetaMask</span>
+        </button>
+        <div id="wallet-balance-pill" class="wallet-balance-pill hidden">
+          <span id="wallet-balance-amount">0.00</span>
+          <span id="wallet-balance-symbol">USA₮</span>
+        </div>
       </div>
     </div>
   </header>
@@ -56,7 +75,7 @@
     <section class="hero-section">
       <h2 class="hero-title">Scam-Detection Gate for Stablecoins</h2>
       <p class="hero-subtitle">
-        Veridex inspects forwarded chats, payment links, and recipient addresses for fraud vectors before executing transfers over x402 with gas sponsorship.
+        Veridex inspects forwarded chats, payment links, and recipient addresses for fraud vectors before signing and settling transfers over x402 with gas sponsorship.
       </p>
     </section>
 
@@ -86,7 +105,7 @@
               <span class="chip-icon">🔗</span> URL Shortener Bait
             </button>
             <button type="button" class="preset-chip chip-success" data-preset="clean">
-              <span class="chip-icon">🛡️</span> Clean Invoice ($1.00)
+              <span class="chip-icon">🛡️</span> Clean Transfer ($0.10)
             </button>
           </div>
         </div>
@@ -99,7 +118,7 @@
               name="text" 
               class="form-textarea" 
               rows="4" 
-              placeholder="e.g. 'Transfer 1.00 USDC to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 for invoice #1042' or paste a forwarded Telegram message..."
+              placeholder="e.g. 'Transfer 0.10 USA₮ to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 for coffee invoice #1042' or paste any forwarded Telegram chat..."
               required
             ></textarea>
           </div>
@@ -117,16 +136,16 @@
               >
             </div>
             <div class="form-group flex-1">
-              <label for="input-amount" class="form-label">Amount (USDC / USA₮)</label>
+              <label for="input-amount" class="form-label">Amount (<span class="token-symbol-label">USA₮</span>)</label>
               <input 
                 type="number" 
                 id="input-amount" 
                 name="amount" 
                 class="form-input" 
-                placeholder="1.00" 
-                step="0.01" 
-                min="0.01"
-                value="1.00"
+                placeholder="0.10" 
+                step="0.0001" 
+                min="0.0001"
+                value="0.10"
               >
             </div>
           </div>
@@ -158,7 +177,7 @@
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
           </div>
-          <p class="idle-text">Enter text or click a test template to run fraud evaluation.</p>
+          <p class="idle-text">Enter text or select a template to run fraud evaluation.</p>
         </div>
 
         <!-- Loading State -->
@@ -232,16 +251,24 @@
             <h5 class="confirm-box-title">Confirm Transfer Details</h5>
             <div class="transfer-summary-grid">
               <div class="summary-item">
+                <span class="summary-label">Payer Wallet (MetaMask)</span>
+                <span id="confirm-payer" class="summary-val font-mono">Not Connected</span>
+              </div>
+              <div class="summary-item">
                 <span class="summary-label">Payee Recipient</span>
                 <span id="confirm-recipient" class="summary-val font-mono">0x...</span>
               </div>
               <div class="summary-item">
                 <span class="summary-label">Amount</span>
-                <span id="confirm-amount" class="summary-val text-accent">1.00 USDC</span>
+                <span id="confirm-amount" class="summary-val text-accent">0.10 USA₮</span>
               </div>
               <div class="summary-item">
                 <span class="summary-label">Gas Fee</span>
                 <span class="summary-val text-accent">Sponsored ($0.00)</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Settlement Network</span>
+                <span id="confirm-network" class="summary-val">Celo Mainnet (Chain 42220)</span>
               </div>
               <div class="summary-item">
                 <span class="summary-label">Settlement Rail</span>
@@ -255,7 +282,7 @@
 
             <button type="button" id="btn-confirm-transfer" class="btn btn-confirm">
               <span class="btn-spinner hidden" id="confirm-spinner"></span>
-              <span class="btn-text">⚡ Confirm & Execute Over x402</span>
+              <span class="btn-text">🦊 Sign with MetaMask & Settle over x402</span>
             </button>
           </div>
 
@@ -264,8 +291,8 @@
             <div class="receipt-header">
               <span class="receipt-icon">🎉</span>
               <div>
-                <h4 class="receipt-title">Settlement Successful on Celo Sepolia!</h4>
-                <p class="receipt-subtitle">Transaction verified and settled via x402 Facilitator relayer.</p>
+                <h4 class="receipt-title" id="receipt-title">Settlement Successful on Celo Mainnet!</h4>
+                <p class="receipt-subtitle">Transaction signed via MetaMask and settled via x402 Facilitator.</p>
               </div>
             </div>
             <div class="receipt-details">
@@ -302,7 +329,7 @@
       </div>
       <div class="footer-col">
         <h6>Celo Hackathon Track</h6>
-        <p>Track 2: Real World Adoption — Best Stablecoin Adoption subtrack.</p>
+        <p>Track 2: Real World Adoption — Best Stablecoin Adoption subtrack (USA₮ over x402).</p>
       </div>
       <div class="footer-col">
         <h6>Attribution & Rails</h6>

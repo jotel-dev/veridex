@@ -162,6 +162,80 @@ body {
   flex-wrap: wrap;
 }
 
+/* Network Selector Dropdown */
+.network-dropdown {
+  background: rgba(16, 22, 34, 0.9);
+  color: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 0.35rem 0.75rem;
+  font-family: var(--font-main);
+  font-size: 0.8rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.network-dropdown:focus, .network-dropdown:hover {
+  border-color: var(--accent-celo);
+}
+
+/* Wallet Connect Button & Pill */
+.wallet-connect-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.btn-connect {
+  background: linear-gradient(135deg, rgba(246, 133, 27, 0.15) 0%, rgba(226, 118, 17, 0.25) 100%);
+  color: #FDBA74;
+  border: 1px solid rgba(246, 133, 27, 0.4);
+  padding: 0.35rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-connect:hover {
+  background: linear-gradient(135deg, rgba(246, 133, 27, 0.25) 0%, rgba(226, 118, 17, 0.4) 100%);
+  color: #FFFFFF;
+  border-color: #F97316;
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.3);
+}
+
+.btn-connected {
+  background: rgba(53, 208, 127, 0.12);
+  color: #86EFAC;
+  border-color: rgba(53, 208, 127, 0.4);
+}
+
+.btn-connected:hover {
+  background: rgba(53, 208, 127, 0.2);
+  border-color: var(--accent-celo);
+  box-shadow: 0 0 12px var(--accent-celo-glow);
+}
+
+.wallet-balance-pill {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--accent-celo);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
