@@ -571,7 +571,14 @@ btnConfirmTransfer.addEventListener('click', async () => {
     receiptBox.classList.remove('hidden');
 
     receiptTitle.textContent = `Transfer Successful on ${net.name}!`;
-    receiptSubtitle.textContent = `Payer authorization signed in-browser via MetaMask. Gas sponsored by Veridex Agent.`;
+
+    // Dynamically set exact rail subtitle
+    if (result.rail && (result.rail.includes('Direct EIP-3009 relay') || result.rail.includes('fallback'))) {
+      receiptSubtitle.textContent = "Transaction signed via MetaMask and settled via Direct EIP-3009 Relay (x402 facilitator preflight unsupported for this token)";
+    } else {
+      receiptSubtitle.textContent = "Transaction signed via MetaMask and settled via x402 Facilitator";
+    }
+
     receiptTxLink.textContent = result.txHash;
     receiptTxLink.href = result.explorerUrl;
     receiptPayer.textContent = result.payer;
