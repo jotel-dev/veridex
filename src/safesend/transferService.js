@@ -81,6 +81,70 @@ class TransferService {
   }
 
   /**
+   * Direct EIP-3009 relay (fallback — Celo's hosted x402 facilitator currently fails preflight on Tether's missing version() method)
+   * 
+   * Relays a client-signed EIP-3009 TransferWithAuthorization directly on-chain to the Tether contract,
+   * sponsoring gas from the agent wallet and appending the ERC-8021 attribution tag to the calldata.
+   */
+  async relayEIP3009Authorization({
+    from,
+    to,
+    value,
+    validAfter = 0,
+    validBefore,
+    nonce,
+    signature,
+    tokenAddress
+  }) {
+    const targetToken = tokenAddress || this.tokenAddress;
+    const sig = ethers.Signature.from(signature);
+
+    const tokenContract = new ethers.Contract(targetToken, ERC20_ABI, this.signer);
+    const baseCalldata = tokenContract.interface.encodeFunctionData('transferWithAuthorization', [
+      from,
+      to,
+      value,
+      validAfter,
+      validBefore,
+      nonce,
+      sig.v,
+      sig.r,
+      sig.s
+    ]);
+
+    const attributionSuffix = this.getAttributionDataSuffix();
+    const suffixedCalldata = baseCalldata + attributionSuffix.slice(2);
+
+    console.log(`\n[Direct EIP-3009 Relay] Relaying TransferWithAuthorization for ${from} -> ${to}`);
+    console.log(`[Direct EIP-3009 Relay] Value: ${value} (raw units)`);
+    console.log(`[Direct EIP-3009 Relay] Sponsor: ${this.agentWallet.getAddress()}`);
+    console.log(`[Direct EIP-3009 Relay] Attribution Tag: ${this.attributionTag}`);
+
+    const tx = await this.signer.sendTransaction({
+      to: targetToken,
+      data: suffixedCalldata,
+      gasLimit: 250000n
+    });
+
+    console.log(`[Direct EIP-3009 Relay] Transaction broadcasted: ${tx.hash}`);
+    const receipt = await tx.wait(1);
+
+    return {
+      success: receipt.status === 1,
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      payer: from,
+      recipient: to,
+      tokenAddress: targetToken,
+      sponsorWallet: this.agentWallet.getAddress(),
+      attributionTag: this.attributionTag,
+      rail: "Direct EIP-3009 relay (fallback — Celo's hosted x402 facilitator currently fails preflight on Tether's missing version() method)",
+      explorerUrl: `https://celoscan.io/tx/${tx.hash}`
+    };
+  }
+
+  /**
    * Execute sponsored USA₮ transfer on Celo with attribution tag
    * @param {object} params
    * @param {string} params.recipient - Destination EVM address
@@ -101,7 +165,6 @@ class TransferService {
 
     // 2. Append ERC-8021 attribution suffix
     const attributionSuffix = this.getAttributionDataSuffix();
-    // remove '0x' prefix from suffix and append to base calldata
     const suffixedCalldata = baseCalldata + attributionSuffix.slice(2);
 
     console.log(`[SafeSend Transfer] Recipient: ${recipient}`);
@@ -109,7 +172,6 @@ class TransferService {
     console.log(`[SafeSend Transfer] Attribution Tag: ${this.attributionTag}`);
     console.log(`[SafeSend Transfer] Data Suffix Attached: ${attributionSuffix}`);
 
-    // If simulation requested, return prepared transaction payload
     if (simulateOnly) {
       const estimatedGas = await this.provider.estimateGas({
         from: this.agentWallet.getAddress(),

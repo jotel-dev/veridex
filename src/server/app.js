@@ -2,7 +2,8 @@
  * Veridex - REST API & Web Application Server
  * 
  * Exposes the Veridex security & transfer pipeline as a clean REST API
- * supporting interactive client-side MetaMask EIP-3009 signing and x402 settlement.
+ * supporting interactive client-side MetaMask EIP-3009 signing, x402 settlement (USDC),
+ * and Direct EIP-3009 relay (fallback — Celo's hosted x402 facilitator currently fails preflight on Tether's missing version() method).
  */
 
 const express = require('express');
@@ -153,7 +154,7 @@ app.post('/api/safesend/check', async (req, res) => {
       });
     }
 
-    const inputContent = text || `Transfer ${amount || '1.0'} to ${recipient}`;
+    const inputContent = text || `Transfer ${amount || '0.10'} to ${recipient}`;
     const scamReport = await ScamDetector.analyze(inputContent);
 
     // Auto-detect recipient / amount if not provided
@@ -194,7 +195,7 @@ app.post('/api/safesend/check', async (req, res) => {
 
 /**
  * POST /api/safesend/execute
- * Settle client-signed (MetaMask) or testnet x402 payment
+ * Settle client-signed (MetaMask) or testnet transfer
  */
 app.post('/api/safesend/execute', async (req, res) => {
   try {
@@ -213,18 +214,58 @@ app.post('/api/safesend/execute', async (req, res) => {
 
     // Case 1: Client signed with MetaMask (Option A)
     if (signedPayload) {
+      const auth = signedPayload.paymentPayload?.payload?.authorization;
+      const signature = signedPayload.paymentPayload?.payload?.signature;
+      const payerAddr = payer || auth?.from;
+
       console.log(`\n[API Execute] Received MetaMask-signed authorization for ${netCfg.name}:`);
-      console.log(`Payer: ${payer || signedPayload.paymentPayload?.payload?.authorization?.from}`);
+      console.log(`Payer: ${payerAddr}`);
       console.log(`Recipient: ${recipient}`);
       console.log(`Amount: ${amount} ${netCfg.token.symbol}`);
 
+      // Path A: Celo Mainnet USA₮ -> Direct EIP-3009 relay fallback
+      // (Fallback because Celo's hosted x402 facilitator currently fails preflight on Tether's missing version() method)
+      if (network === 'mainnet') {
+        const transferService = new TransferService({
+          tokenAddress: netCfg.token.address,
+          tokenDecimals: netCfg.token.decimals,
+          tokenSymbol: netCfg.token.symbol,
+          attributionTag
+        });
+
+        const relayRes = await transferService.relayEIP3009Authorization({
+          from: payerAddr,
+          to: recipient,
+          value: auth.value,
+          validAfter: parseInt(auth.validAfter || '0', 10),
+          validBefore: parseInt(auth.validBefore, 10),
+          nonce: auth.nonce,
+          signature,
+          tokenAddress: netCfg.token.address
+        });
+
+        return res.json({
+          success: true,
+          network: 'celo-mainnet',
+          txHash: relayRes.txHash,
+          explorerUrl: relayRes.explorerUrl,
+          payer: relayRes.payer,
+          recipient: relayRes.recipient,
+          amount,
+          token: netCfg.token.symbol,
+          attributionTag,
+          dataSuffix,
+          rail: "Direct EIP-3009 relay (fallback — Celo's hosted x402 facilitator currently fails preflight on Tether's missing version() method)",
+          sponsorWallet: relayRes.sponsorWallet
+        });
+      }
+
+      // Path B: USDC over hosted x402 Facilitator (Celo Sepolia or Mainnet USDC)
       const x402Client = new X402FacilitatorClient(network === 'sepolia' ? 'sepolia' : 'mainnet');
-      
-      // Verify
-      console.log(`Verifying payload with ${network} facilitator...`);
+      console.log(`Verifying payload with ${network} x402 facilitator...`);
       const verifyRes = await x402Client.verifyPayment(signedPayload);
       if (!verifyRes.valid) {
-        console.error('Facilitator verification failed:', verifyRes.data);
+        console.error('x402 Facilitator verification failed:', verifyRes.data);
         return res.status(400).json({
           success: false,
           error: 'Facilitator verification failed: ' + (verifyRes.data?.invalidReasonDetails || verifyRes.data?.invalidReason || JSON.stringify(verifyRes.data)),
@@ -232,11 +273,8 @@ app.post('/api/safesend/execute', async (req, res) => {
         });
       }
 
-      // Settle
-      console.log(`Submitting settlement to ${network} facilitator...`);
+      console.log(`Submitting settlement to ${network} x402 facilitator...`);
       const settleRes = await x402Client.settlePayment(signedPayload);
-      console.log('Facilitator Settle Response:', settleRes);
-
       const txHash = settleRes.transaction || settleRes.txHash;
 
       return res.json({
@@ -244,12 +282,13 @@ app.post('/api/safesend/execute', async (req, res) => {
         network: netCfg.networkWireName,
         txHash,
         explorerUrl: `${netCfg.explorer}/tx/${txHash}`,
-        payer: settleRes.payer || payer,
+        payer: settleRes.payer || payerAddr,
         recipient,
         amount,
         token: netCfg.token.symbol,
         attributionTag,
         dataSuffix,
+        rail: 'x402 Facilitator (EIP-3009)',
         facilitator: network === 'sepolia' ? 'https://api.x402.sepolia.celo.org' : 'https://api.x402.celo.org'
       });
     }
@@ -332,6 +371,7 @@ app.post('/api/safesend/execute', async (req, res) => {
         token: netCfg.token.symbol,
         attributionTag,
         dataSuffix,
+        rail: 'x402 Facilitator (EIP-3009)',
         facilitator: 'https://api.x402.sepolia.celo.org'
       });
     }

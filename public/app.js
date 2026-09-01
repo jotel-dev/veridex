@@ -8,7 +8,9 @@
  * - Fraud detection via /api/safesend/check
  * - Native browser SpeechSynthesis voice warnings for high-risk alerts
  * - In-browser cryptographic EIP-3009 typed data signing (TransferWithAuthorization)
- * - Gasless settlement via Celo x402 Facilitator
+ * - Sponsoring & Execution Rails:
+ *   * Mainnet USA₮: Direct EIP-3009 relay (fallback — Celo's hosted x402 facilitator currently fails preflight on Tether's missing version() method)
+ *   * Sepolia USDC: x402 Facilitator (EIP-3009)
  */
 
 // Network configurations
@@ -24,11 +26,12 @@ const NETWORKS = {
     tokenAddress: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e',
     rpcUrl: 'https://forno.celo.org',
     explorer: 'https://celoscan.io',
-    facilitatorNetwork: 'celo'
+    facilitatorNetwork: 'celo',
+    railLabel: "Direct EIP-3009 relay (fallback — Celo's hosted x402 facilitator currently fails preflight on Tether's missing version() method)"
   },
   sepolia: {
     chainId: 11142220,
-    hexChainId: '0xaa007c', // 11142220 in hex is 0xaa007c
+    hexChainId: '0xaa007c',
     name: 'Celo Sepolia Testnet',
     tokenSymbol: 'USDC',
     tokenName: 'USDC',
@@ -37,7 +40,8 @@ const NETWORKS = {
     tokenAddress: '0x01C5C0122039549AD1493B8220cABEdD739BC44E',
     rpcUrl: 'https://forno.celo-sepolia.celo-testnet.org',
     explorer: 'https://sepolia.celoscan.io',
-    facilitatorNetwork: 'celo-sepolia'
+    facilitatorNetwork: 'celo-sepolia',
+    railLabel: 'x402 Facilitator (EIP-3009)'
   }
 };
 
@@ -112,21 +116,37 @@ const confirmPayer = document.getElementById('confirm-payer');
 const confirmRecipient = document.getElementById('confirm-recipient');
 const confirmAmount = document.getElementById('confirm-amount');
 const confirmNetwork = document.getElementById('confirm-network');
+const confirmRail = document.getElementById('confirm-rail');
 const btnConfirmTransfer = document.getElementById('btn-confirm-transfer');
 const confirmSpinner = document.getElementById('confirm-spinner');
 
 // Receipt Elements
 const receiptBox = document.getElementById('receipt-box');
 const receiptTitle = document.getElementById('receipt-title');
+const receiptSubtitle = document.getElementById('receipt-subtitle');
 const receiptTxLink = document.getElementById('receipt-tx-link');
 const receiptPayer = document.getElementById('receipt-payer');
 const receiptPayee = document.getElementById('receipt-payee');
+const receiptRail = document.getElementById('receipt-rail');
 const receiptBtnExplorer = document.getElementById('receipt-btn-explorer');
 
 // Helper: Format EVM Address
 function formatAddress(addr) {
   if (!addr) return '';
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
+
+function updateRailLabels() {
+  const net = NETWORKS[currentNetworkKey];
+  if (confirmRail) {
+    confirmRail.textContent = net.railLabel;
+  }
+  if (btnConfirmTransfer) {
+    const actionText = currentNetworkKey === 'mainnet' 
+      ? '🦊 Sign with MetaMask & Settle via Direct EIP-3009 Relay'
+      : '🦊 Sign with MetaMask & Settle over x402';
+    btnConfirmTransfer.querySelector('.btn-text').textContent = actionText;
+  }
 }
 
 // -------------------------------------------------------------
@@ -190,7 +210,6 @@ async function checkAndSwitchNetwork() {
           params: [{ chainId: targetChainHex }]
         });
       } catch (switchError) {
-        // Chain not added to MetaMask yet
         if (switchError.code === 4902) {
           await window.ethereum.request({
             method: 'wallet_addEthereumChain',
@@ -243,12 +262,16 @@ selectNetwork.addEventListener('change', async (e) => {
   // Update labels
   tokenSymbolLabels.forEach(el => el.textContent = net.tokenSymbol);
   if (confirmNetwork) confirmNetwork.textContent = `${net.name} (Chain ${net.chainId})`;
+  updateRailLabels();
 
   if (currentAccount) {
     await checkAndSwitchNetwork();
     await updateWalletBalance();
   }
 });
+
+// Initial label sync
+updateRailLabels();
 
 // -------------------------------------------------------------
 // BROWSER SPEECH SYNTHESIS (TTS)
@@ -405,6 +428,7 @@ form.addEventListener('submit', async (e) => {
       confirmRecipient.textContent = targetRecipient;
       confirmAmount.textContent = `${targetAmount} ${net.tokenSymbol}`;
       confirmNetwork.textContent = `${net.name} (Chain ${net.chainId})`;
+      updateRailLabels();
 
       currentTransferPayload = {
         recipient: targetRecipient,
@@ -426,7 +450,7 @@ form.addEventListener('submit', async (e) => {
 });
 
 // -------------------------------------------------------------
-// STEP 2: METAMASK EIP-3009 SIGNING & X402 SETTLEMENT
+// STEP 2: METAMASK EIP-3009 SIGNING & SETTLEMENT
 // -------------------------------------------------------------
 
 btnConfirmTransfer.addEventListener('click', async () => {
@@ -489,9 +513,11 @@ btnConfirmTransfer.addEventListener('click', async () => {
     const signature = await signer.signTypedData(domain, types, authMessage);
     console.log('MetaMask signature received:', signature);
 
-    btnConfirmTransfer.querySelector('.btn-text').textContent = 'Settling over x402 Facilitator...';
+    btnConfirmTransfer.querySelector('.btn-text').textContent = currentNetworkKey === 'mainnet'
+      ? 'Relaying transaction on Celo Mainnet...'
+      : 'Settling over x402 Facilitator...';
 
-    // 3. Build wire payload for Celo x402 Facilitator
+    // 3. Build wire payload
     const signedPayload = {
       x402Version: 1,
       paymentPayload: {
@@ -537,18 +563,20 @@ btnConfirmTransfer.addEventListener('click', async () => {
 
     const result = await response.json();
     if (!result.success) {
-      throw new Error(result.error || 'Settlement failed on x402 facilitator.');
+      throw new Error(result.error || 'Transfer execution failed.');
     }
 
     // 5. Render Success Receipt
     transferConfirmBox.classList.add('hidden');
     receiptBox.classList.remove('hidden');
 
-    receiptTitle.textContent = `Settlement Successful on ${net.name}!`;
+    receiptTitle.textContent = `Transfer Successful on ${net.name}!`;
+    receiptSubtitle.textContent = `Payer authorization signed in-browser via MetaMask. Gas sponsored by Veridex Agent.`;
     receiptTxLink.textContent = result.txHash;
     receiptTxLink.href = result.explorerUrl;
     receiptPayer.textContent = result.payer;
     receiptPayee.textContent = result.recipient;
+    receiptRail.textContent = result.rail || net.railLabel;
     receiptBtnExplorer.href = result.explorerUrl;
 
     // Refresh balance
@@ -560,7 +588,7 @@ btnConfirmTransfer.addEventListener('click', async () => {
   } finally {
     btnConfirmTransfer.disabled = false;
     confirmSpinner.classList.add('hidden');
-    btnConfirmTransfer.querySelector('.btn-text').textContent = '🦊 Sign with MetaMask & Settle over x402';
+    updateRailLabels();
   }
 });
 

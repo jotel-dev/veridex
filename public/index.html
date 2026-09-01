@@ -272,7 +272,7 @@
               </div>
               <div class="summary-item">
                 <span class="summary-label">Settlement Rail</span>
-                <span class="summary-val">x402 Facilitator (EIP-3009)</span>
+                <span id="confirm-rail" class="summary-val">Direct EIP-3009 relay (fallback — Celo's hosted x402 facilitator currently fails preflight on Tether's missing version() method)</span>
               </div>
             </div>
 
@@ -292,7 +292,7 @@
               <span class="receipt-icon">🎉</span>
               <div>
                 <h4 class="receipt-title" id="receipt-title">Settlement Successful on Celo Mainnet!</h4>
-                <p class="receipt-subtitle">Transaction signed via MetaMask and settled via x402 Facilitator.</p>
+                <p class="receipt-subtitle" id="receipt-subtitle">Transaction signed via MetaMask and settled via x402 Facilitator.</p>
               </div>
             </div>
             <div class="receipt-details">
@@ -307,6 +307,10 @@
               <div class="receipt-row">
                 <span class="receipt-label">Recipient:</span>
                 <span id="receipt-payee" class="font-mono">0x...</span>
+              </div>
+              <div class="receipt-row">
+                <span class="receipt-label">Execution Rail:</span>
+                <span id="receipt-rail" class="font-mono" style="font-size:0.75rem; color: #86EFAC;">x402</span>
               </div>
               <div class="receipt-row">
                 <span class="receipt-label">Attribution Tag:</span>
