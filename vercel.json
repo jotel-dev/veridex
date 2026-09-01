@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/info", "destination": "/api/info.js" },
+    { "source": "/api/health", "destination": "/api/health.js" },
+    { "source": "/api/balance", "destination": "/api/balance.js" },
+    { "source": "/api/safesend/check", "destination": "/api/safesend/check.js" },
+    { "source": "/api/safesend/execute", "destination": "/api/safesend/execute.js" },
+    { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/", "destination": "/public/index.html" },
+    { "source": "/(.*)", "destination": "/public/$1" }
+  ]
+}
