@@ -4,6 +4,11 @@
  * Settle client-signed (MetaMask) or testnet transfer:
  * - Mainnet USA₮: Direct EIP-3009 relay (fallback — Celo's hosted x402 facilitator currently fails preflight on Tether's missing version() method)
  * - Sepolia / Mainnet USDC: x402 Facilitator (EIP-3009)
+ * 
+ * Safety Features:
+ * - Max Transfer Cap ($50.00 max limit)
+ * - Sliding-window IP & Payer Rate Limiting (max 5 tx/min)
+ * - Payload & authorization amount integrity validation
  */
 
 const path = require('path');
@@ -12,6 +17,34 @@ const { ethers } = require('ethers');
 const { X402FacilitatorClient } = require('../../src/safesend/x402Client');
 const { TransferService } = require('../../src/safesend/transferService');
 const { toDataSuffix } = require('@celo/attribution-tags');
+
+// Safety Constants
+const MAX_TRANSFER_CAP = parseFloat(process.env.MAX_TRANSFER_CAP || '50.0'); // $50.00 USD Max Cap
+const MIN_TRANSFER_AMOUNT = 0.0001;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 5; // 5 transfer executions per minute
+
+// In-Memory Rate Limiting Tracker (Sliding Window)
+const rateLimitMap = new Map();
+
+function checkRateLimit(identifier) {
+  const now = Date.now();
+  const windowStart = now - RATE_LIMIT_WINDOW_MS;
+  
+  let timestamps = rateLimitMap.get(identifier) || [];
+  // Filter out timestamps outside the active sliding window
+  timestamps = timestamps.filter(ts => ts > windowStart);
+  
+  if (timestamps.length >= MAX_REQUESTS_PER_WINDOW) {
+    const oldest = timestamps[0];
+    const retryAfterSec = Math.ceil((oldest + RATE_LIMIT_WINDOW_MS - now) / 1000);
+    return { allowed: false, retryAfterSec, remaining: 0 };
+  }
+  
+  timestamps.push(now);
+  rateLimitMap.set(identifier, timestamps);
+  return { allowed: true, retryAfterSec: 0, remaining: MAX_REQUESTS_PER_WINDOW - timestamps.length };
+}
 
 const NETWORKS_CONFIG = {
   mainnet: {
@@ -80,6 +113,52 @@ module.exports = async function handler(req, res) {
       payer
     } = req.body || {};
 
+    // -------------------------------------------------------------
+    // SAFETY CHECK 1: RATE LIMITING (Sliding Window per IP / Payer)
+    // -------------------------------------------------------------
+    const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
+    const rateLimitKey = payer ? `${payer.toLowerCase()}_${clientIp}` : clientIp;
+    const rateLimit = checkRateLimit(rateLimitKey);
+
+    res.setHeader('X-RateLimit-Limit', MAX_REQUESTS_PER_WINDOW.toString());
+    res.setHeader('X-RateLimit-Remaining', rateLimit.remaining.toString());
+
+    if (!rateLimit.allowed) {
+      res.setHeader('Retry-After', rateLimit.retryAfterSec.toString());
+      return res.status(429).json({
+        success: false,
+        error: `Rate limit exceeded. Too many transfer requests. Please wait ${rateLimit.retryAfterSec}s before retrying.`,
+        retryAfter: rateLimit.retryAfterSec
+      });
+    }
+
+    // -------------------------------------------------------------
+    // SAFETY CHECK 2: MAX TRANSFER CAP & AMOUNT VALIDATION
+    // -------------------------------------------------------------
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount < MIN_TRANSFER_AMOUNT) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid transfer amount: ${amount}. Minimum amount is ${MIN_TRANSFER_AMOUNT}.`
+      });
+    }
+
+    if (parsedAmount > MAX_TRANSFER_CAP) {
+      return res.status(400).json({
+        success: false,
+        error: `Transfer amount ($${parsedAmount.toFixed(2)}) exceeds maximum safety cap ($${MAX_TRANSFER_CAP.toFixed(2)}).`,
+        maxTransferCap: MAX_TRANSFER_CAP
+      });
+    }
+
+    // Recipient address format check
+    if (!recipient || !ethers.isAddress(recipient.toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid or missing recipient EVM address: ${recipient}`
+      });
+    }
+
     const config = getHackathonConfig();
     const attributionTag = config.attributionTag || 'celo_ef9178addda4';
     const dataSuffix = toDataSuffix(['veridex', attributionTag]);
@@ -90,6 +169,22 @@ module.exports = async function handler(req, res) {
       const auth = signedPayload.paymentPayload?.payload?.authorization;
       const signature = signedPayload.paymentPayload?.payload?.signature;
       const payerAddr = payer || auth?.from;
+
+      if (!auth || !signature) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing authorization parameters or cryptographic signature in payload.'
+        });
+      }
+
+      // Verify payload value matches amount
+      const expectedRawValue = ethers.parseUnits(amount.toString(), netCfg.token.decimals).toString();
+      if (auth.value.toString() !== expectedRawValue) {
+        return res.status(400).json({
+          success: false,
+          error: `Amount mismatch: payload value (${auth.value}) does not match requested amount (${expectedRawValue}).`
+        });
+      }
 
       console.log(`\n[API Execute] Received MetaMask-signed authorization for ${netCfg.name}:`);
       console.log(`Payer: ${payerAddr}`);
@@ -175,7 +270,7 @@ module.exports = async function handler(req, res) {
       const userWallet = new ethers.Wallet(userData.privateKey);
 
       const tokenAddress = netCfg.token.address;
-      const parsedAmount = ethers.parseUnits(amount.toString(), netCfg.token.decimals).toString();
+      const parsedRawAmount = ethers.parseUnits(amount.toString(), netCfg.token.decimals).toString();
       const validBefore = Math.floor(Date.now() / 1000) + 3600;
       const nonce = ethers.hexlify(ethers.randomBytes(32));
 
@@ -200,7 +295,7 @@ module.exports = async function handler(req, res) {
       const authMessage = {
         from: userWallet.address,
         to: recipient,
-        value: parsedAmount,
+        value: parsedRawAmount,
         validAfter: 0,
         validBefore,
         nonce
@@ -213,7 +308,7 @@ module.exports = async function handler(req, res) {
         tokenAddress,
         payerAddress: userWallet.address,
         recipientAddress: recipient,
-        amount: parsedAmount,
+        amount: parsedRawAmount,
         validBefore,
         nonce,
         signature,

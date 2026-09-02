@@ -193,6 +193,33 @@ app.post('/api/safesend/check', async (req, res) => {
   }
 });
 
+// Safety Constants
+const MAX_TRANSFER_CAP = parseFloat(process.env.MAX_TRANSFER_CAP || '50.0'); // $50.00 USD Max Cap
+const MIN_TRANSFER_AMOUNT = 0.0001;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 5; // 5 transfer executions per minute
+
+// In-Memory Rate Limiting Tracker (Sliding Window)
+const rateLimitMap = new Map();
+
+function checkRateLimit(identifier) {
+  const now = Date.now();
+  const windowStart = now - RATE_LIMIT_WINDOW_MS;
+  
+  let timestamps = rateLimitMap.get(identifier) || [];
+  timestamps = timestamps.filter(ts => ts > windowStart);
+  
+  if (timestamps.length >= MAX_REQUESTS_PER_WINDOW) {
+    const oldest = timestamps[0];
+    const retryAfterSec = Math.ceil((oldest + RATE_LIMIT_WINDOW_MS - now) / 1000);
+    return { allowed: false, retryAfterSec, remaining: 0 };
+  }
+  
+  timestamps.push(now);
+  rateLimitMap.set(identifier, timestamps);
+  return { allowed: true, retryAfterSec: 0, remaining: MAX_REQUESTS_PER_WINDOW - timestamps.length };
+}
+
 /**
  * POST /api/safesend/execute
  * Settle client-signed (MetaMask) or testnet transfer
@@ -206,6 +233,52 @@ app.post('/api/safesend/execute', async (req, res) => {
       signedPayload, 
       payer
     } = req.body;
+
+    // -------------------------------------------------------------
+    // SAFETY CHECK 1: RATE LIMITING (Sliding Window per IP / Payer)
+    // -------------------------------------------------------------
+    const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
+    const rateLimitKey = payer ? `${payer.toLowerCase()}_${clientIp}` : clientIp;
+    const rateLimit = checkRateLimit(rateLimitKey);
+
+    res.setHeader('X-RateLimit-Limit', MAX_REQUESTS_PER_WINDOW.toString());
+    res.setHeader('X-RateLimit-Remaining', rateLimit.remaining.toString());
+
+    if (!rateLimit.allowed) {
+      res.setHeader('Retry-After', rateLimit.retryAfterSec.toString());
+      return res.status(429).json({
+        success: false,
+        error: `Rate limit exceeded. Too many transfer requests. Please wait ${rateLimit.retryAfterSec}s before retrying.`,
+        retryAfter: rateLimit.retryAfterSec
+      });
+    }
+
+    // -------------------------------------------------------------
+    // SAFETY CHECK 2: MAX TRANSFER CAP & AMOUNT VALIDATION
+    // -------------------------------------------------------------
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount < MIN_TRANSFER_AMOUNT) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid transfer amount: ${amount}. Minimum amount is ${MIN_TRANSFER_AMOUNT}.`
+      });
+    }
+
+    if (parsedAmount > MAX_TRANSFER_CAP) {
+      return res.status(400).json({
+        success: false,
+        error: `Transfer amount ($${parsedAmount.toFixed(2)}) exceeds maximum safety cap ($${MAX_TRANSFER_CAP.toFixed(2)}).`,
+        maxTransferCap: MAX_TRANSFER_CAP
+      });
+    }
+
+    // Recipient address format check
+    if (!recipient || !ethers.isAddress(recipient.toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid or missing recipient EVM address: ${recipient}`
+      });
+    }
 
     const config = getHackathonConfig();
     const attributionTag = config.attributionTag || 'celo_ef9178addda4';
