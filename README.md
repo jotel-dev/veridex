@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/logo.png" alt="Veridex Logo" width="220" />
+</p>
+
 # Veridex - Celo Agents at Work Hackathon
 
 Veridex is a scam-detection gate that checks messages, links, and recipient addresses for fraud signals before executing a stablecoin (USA₮) transfer over x402, with sponsored gas.

@@ -146,12 +146,24 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: rgba(0, 255, 102, 0.08);
-  border: 1px solid var(--neon-green);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 0 10px rgba(0, 255, 102, 0.25);
+  width: 38px;
+  height: 38px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(0, 255, 102, 0.45));
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.brand-container:hover .brand-logo-img {
+  transform: scale(1.08);
+  filter: drop-shadow(0 0 14px rgba(0, 255, 102, 0.75));
 }
 
 .brand-text {
