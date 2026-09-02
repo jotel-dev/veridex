@@ -93,11 +93,21 @@ function getHackathonConfig() {
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      status: 'ok',
+      endpoint: '/api/safesend/execute',
+      service: 'Veridex SafeSend Transfer Execution API',
+      description: 'Executes gasless EIP-3009 transfers over Direct Relay or x402 Facilitator on Celo',
+      methods: ['GET', 'POST']
+    });
   }
 
   if (req.method !== 'POST') {
@@ -105,13 +115,22 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        console.warn('Failed to parse body as JSON string:', e);
+      }
+    }
+
     const { 
       recipient, 
       amount, 
       network = 'mainnet', 
       signedPayload, 
       payer
-    } = req.body || {};
+    } = body || {};
 
     // -------------------------------------------------------------
     // SAFETY CHECK 1: RATE LIMITING (Sliding Window per IP / Payer)

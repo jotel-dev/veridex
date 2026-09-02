@@ -157,7 +157,7 @@ async function updateWalletBalance() {
   if (!currentAccount) return;
   const net = NETWORKS[currentNetworkKey];
   try {
-    const res = await fetch(`/api/balance?address=${currentAccount}&network=${currentNetworkKey}`);
+    const res = await fetch(getApiUrl(`/api/balance?address=${currentAccount}&network=${currentNetworkKey}`));
     const data = await res.json();
     if (data.success) {
       walletBalanceAmount.textContent = parseFloat(data.tokenBalance).toFixed(4);
@@ -316,6 +316,14 @@ function hideAllStates() {
   receiptBox.classList.add('hidden');
 }
 
+// Helper: Resolve API URLs across localhost, Vercel deployments, and file:// preview
+function getApiUrl(endpoint) {
+  if (window.location.protocol === 'file:') {
+    return `http://localhost:3000${endpoint}`;
+  }
+  return endpoint;
+}
+
 function setIdle() {
   hideAllStates();
   stateIdle.classList.remove('hidden');
@@ -324,7 +332,7 @@ function setIdle() {
   stopSpeaking();
 }
 
-// Presets
+// Presets - ONLY populate input fields without auto-triggering analysis
 document.querySelectorAll('.preset-chip').forEach(btn => {
   btn.addEventListener('click', () => {
     const presetKey = btn.getAttribute('data-preset');
@@ -333,7 +341,9 @@ document.querySelectorAll('.preset-chip').forEach(btn => {
       inputText.value = preset.text;
       inputRecipient.value = preset.recipient || '';
       inputAmount.value = preset.amount || '0.10';
-      form.dispatchEvent(new Event('submit'));
+      // Reset right-side state to idle — analysis will ONLY run when user explicitly clicks "Analyze & SafeSend"
+      setIdle();
+      inputText.focus();
     }
   });
 });
@@ -352,7 +362,7 @@ btnReplayAudio.addEventListener('click', () => {
 btnStopAudio.addEventListener('click', stopSpeaking);
 
 // -------------------------------------------------------------
-// STEP 1: FRAUD & SCAM ANALYSIS
+// STEP 1: FRAUD & SCAM ANALYSIS (Triggered ONLY on explicit click)
 // -------------------------------------------------------------
 
 form.addEventListener('submit', async (e) => {
@@ -375,12 +385,29 @@ form.addEventListener('submit', async (e) => {
   btnAnalyze.disabled = true;
   analyzeSpinner.classList.remove('hidden');
 
+  const checkUrl = getApiUrl('/api/safesend/check');
+  console.log(`[SafeSend Check] Explicit button click triggered. Fetching ${checkUrl}...`);
+
   try {
-    const response = await fetch('/api/safesend/check', {
+    const response = await fetch(checkUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
       body: JSON.stringify({ text, recipient, amount })
     });
+
+    if (!response.ok) {
+      let errDetail = '';
+      try {
+        const errJson = await response.json();
+        errDetail = errJson.error || JSON.stringify(errJson);
+      } catch (_) {
+        errDetail = await response.text();
+      }
+      throw new Error(errDetail || `Server responded with HTTP status ${response.status}`);
+    }
 
     const result = await response.json();
     if (!result.success) {
@@ -440,8 +467,16 @@ form.addEventListener('submit', async (e) => {
       transferConfirmBox.classList.remove('hidden');
     }
   } catch (error) {
-    console.error('Analysis error:', error);
-    alert(`Error running security analysis: ${error.message}`);
+    console.error('[SafeSend Analysis Error]:', error);
+    let userMsg = error.message;
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      if (window.location.protocol === 'file:') {
+        userMsg = 'Cannot connect to backend server from file:// protocol. Please open http://localhost:3000 in your browser with the server running.';
+      } else {
+        userMsg = `Failed to connect to ${checkUrl}. Check if your backend server is running and accessible.`;
+      }
+    }
+    alert(`Error running security analysis: ${userMsg}`);
     setIdle();
   } finally {
     btnAnalyze.disabled = false;
@@ -549,7 +584,10 @@ btnConfirmTransfer.addEventListener('click', async () => {
     };
 
     // 4. Submit to backend /api/safesend/execute
-    const response = await fetch('/api/safesend/execute', {
+    const executeUrl = getApiUrl('/api/safesend/execute');
+    console.log(`[SafeSend Execute] Submitting transaction to ${executeUrl}...`);
+
+    const response = await fetch(executeUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

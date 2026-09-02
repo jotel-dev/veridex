@@ -141,6 +141,29 @@ app.get('/api/balance', async (req, res) => {
 });
 
 /**
+ * GET /api/safesend/check
+ * Endpoint status and usage instructions
+ */
+app.get('/api/safesend/check', (req, res) => {
+  res.json({
+    status: 'ok',
+    endpoint: '/api/safesend/check',
+    service: 'Veridex SafeSend Scam Detector API',
+    description: 'Autonomous Scam-Detection Gate for Stablecoin Transfers on Celo',
+    methods: ['GET', 'POST'],
+    usage: {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: {
+        text: 'Transfer 0.10 USA₮ to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        recipient: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        amount: '0.10'
+      }
+    }
+  });
+});
+
+/**
  * POST /api/safesend/check
  * Run scam detection on message / URL / payment text
  */
@@ -219,6 +242,20 @@ function checkRateLimit(identifier) {
   rateLimitMap.set(identifier, timestamps);
   return { allowed: true, retryAfterSec: 0, remaining: MAX_REQUESTS_PER_WINDOW - timestamps.length };
 }
+
+/**
+ * GET /api/safesend/execute
+ * Endpoint status and usage instructions
+ */
+app.get('/api/safesend/execute', (req, res) => {
+  res.json({
+    status: 'ok',
+    endpoint: '/api/safesend/execute',
+    service: 'Veridex SafeSend Transfer Execution API',
+    description: 'Executes gasless EIP-3009 transfers over Direct Relay or x402 Facilitator on Celo',
+    methods: ['GET', 'POST']
+  });
+});
 
 /**
  * POST /api/safesend/execute

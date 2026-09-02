@@ -1,24 +1,59 @@
 /**
- * Vercel Serverless Function: POST /api/safesend/check
+ * Vercel Serverless Function: /api/safesend/check
+ * Supports:
+ * - GET: Health check & API documentation
+ * - POST: Scam detection and risk evaluation
+ * - OPTIONS: CORS preflight
  */
 
 const { ScamDetector } = require('../../src/safesend/scamDetector');
 
 module.exports = async function handler(req, res) {
+  // Set permissive CORS headers for all origins
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
+  // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
+  // Handle GET request for direct browser verification
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      status: 'ok',
+      endpoint: '/api/safesend/check',
+      service: 'Veridex SafeSend Scam Detector API',
+      description: 'Autonomous Scam-Detection Gate for Stablecoin Transfers on Celo',
+      methods: ['GET', 'POST'],
+      usage: {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: {
+          text: 'Transfer 0.10 USA₮ to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+          recipient: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+          amount: '0.10'
+        }
+      }
+    });
+  }
+
   if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, error: 'Method Not Allowed' });
+    return res.status(405).json({ success: false, error: 'Method Not Allowed. Use POST to submit data.' });
   }
 
   try {
-    const { text, recipient, amount } = req.body || {};
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        console.warn('Failed to parse body as JSON string:', e);
+      }
+    }
+
+    const { text, recipient, amount } = body || {};
     if (!text && !recipient) {
       return res.status(400).json({
         success: false,
