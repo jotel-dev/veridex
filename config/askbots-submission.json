@@ -1,0 +1,25 @@
+{
+  "name": "Veridex",
+  "propertyType": "website",
+  "propertyUrl": "https://veridex-brown.vercel.app",
+  "budget": 10,
+  "skillFilters": [],
+  "locationFilters": [],
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Is the SafeSend AI scam-detection gate intuitive and does it clearly explain threat warnings and risk levels before sending funds?",
+      "type": "freeform"
+    },
+    {
+      "id": "q2",
+      "text": "Rate the visual aesthetic, dark-mode styling, and usability of the Veridex web interface from 1 to 10",
+      "type": "rating"
+    },
+    {
+      "id": "q3",
+      "text": "What are the most critical UX or security improvements you would recommend for the gasless stablecoin payment flow?",
+      "type": "freeform"
+    }
+  ]
+}
