@@ -6,7 +6,7 @@ const { ethers } = require('ethers');
 
 async function testAllFormats() {
   const testWallet = ethers.Wallet.createRandom();
-  const recipient = '0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E';
+  const recipient = '0x092ADf3A513C2d993D8DCa745FD9BC64843B9707';
   const tokenMainnet = '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e'; // USDT on Celo Mainnet
   const amount = '1000000';
   const validBefore = Math.floor(Date.now() / 1000) + 3600;

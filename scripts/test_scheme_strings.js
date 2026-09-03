@@ -6,7 +6,7 @@ const { ethers } = require('ethers');
 
 async function testSchemes() {
   const testWallet = ethers.Wallet.createRandom();
-  const recipient = '0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E';
+  const recipient = '0x092ADf3A513C2d993D8DCa745FD9BC64843B9707';
   const token = '0x01C5C0122039549AD1493B8220cABEdD739BC44E'; // Sepolia USDC
   const amount = '1000000';
   const validBefore = Math.floor(Date.now() / 1000) + 3600;

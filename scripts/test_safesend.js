@@ -34,7 +34,7 @@ async function runTests() {
   // --- TEST CASE 1: High-Risk Seed Phrase Phishing ---
   console.log('\n--- TEST CASE 1: Phishing Credential Theft ---');
   const phishingInput = "URGENT! Your Celo account will be suspended within 24 hours. Enter your 12 recovery words to verify your wallet.";
-  const result1 = await pipeline.process(phishingInput, { recipient: '0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E', amount: '100' });
+  const result1 = await pipeline.process(phishingInput, { recipient: '0x092ADf3A513C2d993D8DCa745FD9BC64843B9707', amount: '100' });
   
   recordResult(
     'Phishing with Seed Phrase Blocked',
@@ -69,7 +69,7 @@ async function runTests() {
   console.log('\n--- TEST CASE 4: Legitimate Transfer Request ---');
   const cleanInput = {
     message: "Monthly team coffee fund payment on Celo",
-    recipient: "0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E",
+    recipient: "0x092ADf3A513C2d993D8DCa745FD9BC64843B9707",
     amount: "10.0",
     simulateOnly: true
   };

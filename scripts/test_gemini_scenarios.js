@@ -15,11 +15,11 @@ const SCENARIOS = [
   },
   {
     name: '3. Clean Lunch Message',
-    input: 'Hey Alice, splitting the bill for lunch yesterday. Sending 15 USA₮ to 0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E for the sushi.'
+    input: 'Hey Alice, splitting the bill for lunch yesterday. Sending 15 USA₮ to 0x092ADf3A513C2d993D8DCa745FD9BC64843B9707 for the sushi.'
   },
   {
     name: '4. No-Link Social Engineering Request',
-    input: "Hey bro, emergency situation! My bank account is frozen and I'm stranded at the transit station. Can you please send 45 USA₮ right now to 0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E? I will pay you back double tomorrow morning."
+    input: "Hey bro, emergency situation! My bank account is frozen and I'm stranded at the transit station. Can you please send 45 USA₮ right now to 0x092ADf3A513C2d993D8DCa745FD9BC64843B9707? I will pay you back double tomorrow morning."
   },
   {
     name: '5. Address Poisoning / Zero Address',

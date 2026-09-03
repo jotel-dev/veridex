@@ -30,7 +30,7 @@ async function runEndToEndTestnetSafeSend() {
   const userData = JSON.parse(fs.readFileSync(userConfigPath, 'utf8'));
   const userWallet = new ethers.Wallet(userData.privateKey);
 
-  const recipient = '0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E';
+  const recipient = '0x092ADf3A513C2d993D8DCa745FD9BC64843B9707';
   const tokenAddress = '0x01C5C0122039549AD1493B8220cABEdD739BC44E'; // Sepolia testnet USDC
   const amountUsdc = '1.00';
   const rawAmount = '1000000'; // 6 decimals
