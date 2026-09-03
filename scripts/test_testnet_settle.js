@@ -20,7 +20,7 @@ async function testLiveSettlement() {
   console.log(`Payer (Test User Wallet): ${userWallet.address}`);
 
   // 2. Setup Recipient and Token
-  const recipient = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+  const recipient = '0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E';
   const tokenAddress = '0x01C5C0122039549AD1493B8220cABEdD739BC44E'; // Sepolia testnet USDC
   const amount = '1000000'; // 1.00 USDC
   const validBefore = Math.floor(Date.now() / 1000) + 3600;

@@ -9,7 +9,7 @@ const HARD_SCENARIOS = [
   {
     id: 'a',
     title: 'a) Calm Professional Approval Phishing (No Urgency)',
-    text: 'Hi, thanks for your patience. To finalize your allocation, please approve spending access at the contract below so we can process your reward: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8'
+    text: 'Hi, thanks for your patience. To finalize your allocation, please approve spending access at the contract below so we can process your reward: 0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E'
   },
   {
     id: 'b',

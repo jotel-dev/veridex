@@ -155,8 +155,8 @@ app.get('/api/safesend/check', (req, res) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: {
-        text: 'Transfer 0.10 USA₮ to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-        recipient: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        text: 'Transfer 0.10 USA₮ to 0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E',
+        recipient: '0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E',
         amount: '0.10'
       }
     }

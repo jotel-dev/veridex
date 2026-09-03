@@ -14,6 +14,8 @@
 keys/
 secrets/
 config/test_user.json
+config/test_recipient.json
+config/test_*.json
 
 # Node
 node_modules/

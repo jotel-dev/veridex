@@ -8,7 +8,7 @@ require('dotenv').config();
 async function testWrappedSettle() {
   const apiKey = process.env.X402_API_KEY;
   const testWallet = ethers.Wallet.createRandom();
-  const recipient = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+  const recipient = '0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E';
   const token = '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e'; // USDT on Celo Mainnet
   const value = '1000000';
   const validBefore = Math.floor(Date.now() / 1000) + 3600;
