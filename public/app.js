@@ -65,8 +65,8 @@ const PRESETS = {
     amount: "0.10"
   },
   clean: {
-    text: "Transfer 0.10 USA₮ to verified merchant 0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E for coffee invoice #1042",
-    recipient: "0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E",
+    text: "Transfer 0.10 USA₮ to verified merchant 0x092ADf3A513C2d993D8DCa745FD9BC64843B9707 for coffee invoice #1042",
+    recipient: "0x092ADf3A513C2d993D8DCa745FD9BC64843B9707",
     amount: "0.10"
   }
 };
@@ -448,7 +448,7 @@ form.addEventListener('submit', async (e) => {
       });
 
       const net = NETWORKS[currentNetworkKey];
-      const targetRecipient = result.resolvedRecipient || recipient || '0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E';
+      const targetRecipient = result.resolvedRecipient || recipient || '0x092ADf3A513C2d993D8DCa745FD9BC64843B9707';
       const targetAmount = result.resolvedAmount || amount || '0.10';
 
       confirmPayer.textContent = currentAccount ? formatAddress(currentAccount) : 'MetaMask (Connect to sign)';
