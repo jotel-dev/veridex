@@ -68,7 +68,7 @@ SafeSend is a fraud-prevention gate for stablecoin transfers on Celo:
    - Urgency and coercion patterns ("act now", "account suspended").
    - Fake airdrops and reward lures ("you've won", "free 1000 USDT").
    - Phishing & credential theft attempts (seed phrases, private keys).
-   - Claude LLM fallback for ambiguous cases.
+   - Google Gemini LLM fallback for ambiguous cases.
 3. **Security Gate**:
    - `HIGH RISK`: Blocks flow, halts execution, returns structured risk report & TTS audio alert.
    - `LOW / MEDIUM RISK`: Clears gate and proceeds to execution.

@@ -3,7 +3,7 @@
  * 
  * Flow:
  * 1. Intake: text, URL, forwarded chat message, or transfer intent
- * 2. Scam Check: Heuristic scanner + Claude LLM fallback
+ * 2. Scam Check: Heuristic scanner + Gemini LLM fallback
  * 3. Gatekeeper:
  *    - HIGH RISK -> Block flow, return speech alert, stop execution.
  *    - LOW/MEDIUM -> Proceed to gas-sponsored USA₮ transfer over x402 with attribution tag.

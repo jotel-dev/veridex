@@ -4,7 +4,7 @@
  * Multi-layer security analyzer:
  * 1. Fast Rule-Based Heuristic Scanner (URLs, urgency, bait, phishing, addresses)
  * 2. Deterministic High/Low Confidence Gate
- * 3. Anthropic Claude LLM Fallback for Ambiguous Cases
+ * 3. Google Gemini LLM Fallback for Ambiguous Cases
  */
 
 const { ethers } = require('ethers');
@@ -202,18 +202,18 @@ class ScamDetector {
       riskLevel = 'MEDIUM';
     }
 
-    // If ambiguous (MEDIUM) and a valid Anthropic API key is configured, attempt Claude LLM analysis
-    const hasAnthropicKey = Boolean(
-      process.env.ANTHROPIC_API_KEY &&
-      typeof process.env.ANTHROPIC_API_KEY === 'string' &&
-      process.env.ANTHROPIC_API_KEY.trim() !== '' &&
-      process.env.ANTHROPIC_API_KEY !== 'undefined' &&
-      process.env.ANTHROPIC_API_KEY !== 'null'
+    // If ambiguous (MEDIUM) and a valid Gemini API key is configured, attempt Gemini LLM analysis
+    const hasGeminiKey = Boolean(
+      process.env.GEMINI_API_KEY &&
+      typeof process.env.GEMINI_API_KEY === 'string' &&
+      process.env.GEMINI_API_KEY.trim() !== '' &&
+      process.env.GEMINI_API_KEY !== 'undefined' &&
+      process.env.GEMINI_API_KEY !== 'null'
     );
 
-    if (riskLevel === 'MEDIUM' && hasAnthropicKey) {
+    if (riskLevel === 'MEDIUM' && hasGeminiKey) {
       try {
-        const llmResult = await this.queryClaudeLLM(text, matches);
+        const llmResult = await this.queryGeminiLLM(text, matches);
         if (llmResult) {
           return {
             ...llmResult,
@@ -223,7 +223,7 @@ class ScamDetector {
           };
         }
       } catch (err) {
-        console.warn('Claude LLM fallback failed or unavailable, defaulting to rule-based assessment:', err.message);
+        console.warn('Gemini LLM fallback failed or unavailable, defaulting to rule-based assessment:', err.message);
       }
     }
 
@@ -283,20 +283,29 @@ class ScamDetector {
   }
 
   /**
-   * Query Anthropic Claude API for deep contextual scam analysis
+   * Query Google Gemini API for deep contextual scam analysis
    */
-  static async queryClaudeLLM(text, initialMatches) {
-    const apiKey = process.env.ANTHROPIC_API_KEY ? process.env.ANTHROPIC_API_KEY.trim() : '';
+  static async queryGeminiLLM(text, initialMatches) {
+    const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : '';
     if (!apiKey || apiKey === 'undefined' || apiKey === 'null') {
       return null;
     }
 
     try {
-      const Anthropic = require('@anthropic-ai/sdk');
-      const anthropic = new Anthropic({ apiKey });
+      const { GoogleGenerativeAI } = require('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 300,
+          responseMimeType: 'application/json'
+        }
+      });
 
       const prompt = `You are the Veridex SafeSend Scam Detection AI on Celo.
-Analyze the following user input/forwarded message for fraud, social engineering, wallet drainer lures, phishing, or fake stablecoin transfers.
+Analyze the following user input/forwarded message for fraud, social engineering, wallet drainer lures, phishing, address poisoning, or fake stablecoin transfers.
 
 User Input:
 """
@@ -314,21 +323,15 @@ Respond with STRICT JSON ONLY matching this format:
   "speechExplanation": "Short conversational warning suitable for text-to-speech"
 }`;
 
-      const response = await anthropic.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 300,
-        temperature: 0.1,
-        messages: [{ role: 'user', content: prompt }]
-      });
-
-      const contentText = response.content[0].text.trim();
-      const jsonMatch = contentText.match(/\{[\s\S]*\}/);
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text().trim();
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
       }
       return null;
     } catch (err) {
-      console.warn('Anthropic API query failed, falling back to rule engine:', err.message);
+      console.warn('Gemini API query failed, falling back to rule engine:', err.message);
       return null;
     }
   }

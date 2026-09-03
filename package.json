@@ -27,8 +27,8 @@
   },
   "homepage": "https://github.com/jotel-dev/veridex#readme",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.122.0",
     "@celo/attribution-tags": "^0.3.0",
+    "@google/generative-ai": "^0.24.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "ethers": "^6.17.0",
