@@ -22,11 +22,12 @@ const URL_SHORTENERS = [
   'cutt.ly', 'rb.gy', 'shorturl.at', 'bl.ink', 'v.gd', 's.id'
 ];
 
-// Lookalike / typosquatting targets in Celo & EVM ecosystem
+// Lookalike / typosquatting targets in Celo & EVM ecosystem (including leetspeak like ce1o, c3lo)
 const LOOKALIKE_PATTERNS = [
-  /c[-_.]?e[-_.]?l[-_.]?o/i,
+  /c[-_.]?[e3][-_. ]*[l1|!i][-_. ]*[o0]/i,
   /c3lo/i,
-  /m[-_.]?e[-_.]?n[-_.]?t[-_.]?o/i,
+  /ce1o/i,
+  /m[-_.]?[e3][-_. ]*[n][-_. ]*[t][-_. ]*[o0]/i,
   /m3nto/i,
   /metam[a-z0-9_-]*sk/i,
   /ph[a-z0-9_-]*ntom/i,
@@ -66,8 +67,8 @@ const RULES = {
     weight: 75,
     patterns: [
       /(?:you(?:'ve|\s+have)?\s+won|congratulations|selected\s+for|eligible\s+for)\s+(?:\$?\d+|free|airdrop|reward|grant|crypto|usdt|celo|usat)/i,
-      /(?:claim|collect)\s+(?:your\s+)?(?:free\s+)?(?:airdrop|tokens?|bonus|voucher|reward|allocation)/i,
-      /(?:1000|5000|10000)\s*(?:usdt|usdc|usat|celo)\s*(?:giveaway|reward|airdrop)/i,
+      /(?:claim|collect|finalize|process|receive)\s+(?:your\s+)?(?:free\s+)?(?:airdrop|tokens?|bonus|voucher|reward|allocation)/i,
+      /(?:1000|5000|10000)\s*(?:usdt|usdc|usat|celo|cusd)\s*(?:giveaway|reward|airdrop)/i,
       /(?:double\s+your\s+(?:deposit|investment|crypto)|send\s+\d+\s+get\s+\d+)/i
     ],
     reason: 'Fake airdrop, lottery, or unsolicited crypto reward bait.'
@@ -85,11 +86,22 @@ const RULES = {
   MALICIOUS_AUTHORIZATION: {
     weight: 80,
     patterns: [
-      /(?:sign|permit|approve)\s*(?:unlimited|all|infinite|max)\s*(?:spend|allowance|balance)/i,
+      /(?:sign|permit|approve|grant)\s*(?:unlimited|all|infinite|max|spending)?\s*(?:spend|spending|allowance|balance|access|permission)/i,
       /(?:drain|sweep|claim\s+all)\s*assets/i,
-      /(?:dapp|site)\s*(?:requires|needs)\s*(?:full\s+access|permission\s+to\s+transfer)/i
+      /(?:dapp|site)\s*(?:requires|needs)\s*(?:full\s+access|permission\s+to\s+transfer)/i,
+      /approve\s+spending\s+access/i
     ],
-    reason: 'Malicious authorization or unlimited approval lure.'
+    reason: 'Malicious authorization or unauthorized spending approval lure.'
+  },
+  SUPPORT_IMPERSONATION: {
+    weight: 65,
+    patterns: [
+      /(?:support|admin|moderator|helpdesk|team|staff|rep(?:resentative)?)\s*(?:from|at)?\s*(?:celo|mento|valora|metamask|tether|circle)/i,
+      /(?:from|at)\s*(?:celo|mento|valora|metamask)\s*(?:support|helpdesk|team)/i,
+      /(?:noticed|detected)\s*(?:unusual|suspicious|unauthorized)\s*(?:activity|login|transaction|behavior)/i,
+      /(?:verify|confirm)\s*(?:your|the)?\s*(?:wallet|account|address|identity)\s*(?:so\s+we\s+can|to\s+verify)/i
+    ],
+    reason: 'Impersonation of official support staff or unprompted verification inquiry.'
   }
 };
 
@@ -262,7 +274,8 @@ class ScamDetector {
    * Helper to extract URLs and EVM addresses from arbitrary text
    */
   static extractEntities(text) {
-    const urlRegex = /(?:https?:\/\/|www\.)[^\s<>"'{}|\\^`[\]]+/gi;
+    // Matches http(s) URLs, www URLs, and bare domain names with valid extensions (e.g. ce1o-rewards.org)
+    const urlRegex = /(?:(?:https?:\/\/|www\.)[^\s<>"'{}|\\^`[\]]+|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:\/[^\s<>"'{}|\\^`[\]]*)?)/gi;
     const addressRegex = /0x[a-fA-F0-9]{40}/g;
     const amountRegex = /(?:send|transfer|pay|\$)\s*(\d+(?:\.\d+)?)\s*(?:usat|usdt|cusd|celo|usd)?/gi;
 
@@ -294,12 +307,12 @@ class ScamDetector {
     try {
       const { GoogleGenerativeAI } = require('@google/generative-ai');
       const genAI = new GoogleGenerativeAI(apiKey);
-      const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+      const modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
       const model = genAI.getGenerativeModel({
         model: modelName,
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 300,
+          maxOutputTokens: 2048,
           responseMimeType: 'application/json'
         }
       });
