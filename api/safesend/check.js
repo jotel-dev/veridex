@@ -31,8 +31,8 @@ module.exports = async function handler(req, res) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: {
-          text: 'Transfer 0.10 USA₮ to 0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E',
-          recipient: '0x140B5C92Ca568D3DB4ED1FfFBFdFd8a1C399Da8E',
+          text: 'Transfer 0.10 USA₮ to 0x092ADf3A513C2d993D8DCa745FD9BC64843B9707',
+          recipient: '0x092ADf3A513C2d993D8DCa745FD9BC64843B9707',
           amount: '0.10'
         }
       }
