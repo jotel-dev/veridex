@@ -4,7 +4,11 @@
 
 require('dotenv').config();
 
-const API_KEY = process.env.CELO_BUILDERS_API_KEY || 'sk-celo-hackathon_QPY7CmJZrSqtdUjKqnhQiEpLWLq9j16PlBnbuDQQQ-o';
+const API_KEY = process.env.CELO_BUILDERS_API_KEY;
+if (!API_KEY) {
+  console.error('Error: CELO_BUILDERS_API_KEY is not set in environment or .env');
+  process.exit(1);
+}
 
 const submissionPayload = {
   projectName: "Veridex",
