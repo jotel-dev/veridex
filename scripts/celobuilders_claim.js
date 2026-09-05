@@ -85,8 +85,7 @@ async function registerWithApiKey(apiKey) {
     telegram: "@jotel001",
     cpayBetaOptIn: true,
     chainstackCoupon: coupon,
-    registeredAt: new Date().toISOString(),
-    apiKey: apiKey
+    registeredAt: new Date().toISOString()
   };
 
   fs.writeFileSync(path.resolve(configDir, 'hackathon.json'), JSON.stringify(hackathonConfig, null, 2), 'utf8');
@@ -121,5 +120,10 @@ async function registerWithApiKey(apiKey) {
   };
 }
 
-// Execute with our claimed API key
-registerWithApiKey('sk-celo-hackathon_QPY7CmJZrSqtdUjKqnhQiEpLWLq9j16PlBnbuDQQQ-o').catch(console.error);
+// Execute with environment API key
+const claimedApiKey = process.env.CELO_BUILDERS_API_KEY;
+if (!claimedApiKey) {
+  console.error('CELO_BUILDERS_API_KEY is not set in environment or .env');
+  process.exit(1);
+}
+registerWithApiKey(claimedApiKey).catch(console.error);
